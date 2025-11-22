@@ -1,42 +1,43 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+  color: #0f172a;
+  background-color: #0b1020;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.app-bg {
+  background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.18), transparent 30%),
+              radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.2), transparent 35%),
+              radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.16), transparent 32%),
+              linear-gradient(135deg, #f8fafc, #eef2ff);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 24px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.pill-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  transition: all 150ms ease;
 }
 
-.card {
-  padding: 2em;
+.pill-btn:hover:not(:disabled) {
+  background: #e2e8f0;
 }
 
-.read-the-docs {
-  color: #888;
+.pill-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

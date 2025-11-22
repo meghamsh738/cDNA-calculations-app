@@ -9,7 +9,7 @@ export default defineConfig({
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'npm run dev:full',
+    command: 'npm run dev:front',
     url: 'http://localhost:5176',
     reuseExistingServer: true,
     timeout: 120_000,
