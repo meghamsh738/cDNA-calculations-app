@@ -354,9 +354,8 @@ function App() {
                 <h2>Samples (Sample, RNA Conc)</h2>
                 <p className="muted">Drop or paste your table here. Header required; delimiter auto-detected.</p>
               </div>
-              <label className="toggle" aria-label="Use example">
+              <label className="toggle">
                 <input
-                  aria-label="Use example"
                   type="checkbox"
                   checked={useExample}
                   onChange={(e) => setUseExample(e.target.checked)}
