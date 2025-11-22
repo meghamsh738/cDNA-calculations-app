@@ -144,6 +144,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
+  const [backendUsed, setBackendUsed] = useState(false)
 
   const samples = useMemo(() => (useExample ? parseSamples(EXAMPLE_TEXT) : parseSamples(sampleText)), [useExample, sampleText])
 
@@ -160,10 +161,11 @@ function App() {
     setError(null)
     setWarning(null)
 
-    // Local fallback calc
+    // Local fallback calc (ensures UI always works even if API is down)
     const local = calcLocally(samples, targetNg, overagePct)
     setRows(local.rows)
     setMasterMix(local.masterMix)
+    setBackendUsed(false)
 
     // Try backend to keep parity; if it fails, we keep local results.
     try {
@@ -181,6 +183,7 @@ function App() {
         const data = await response.json()
         setRows(data.rows || local.rows)
         setMasterMix(data.master_mix || local.masterMix)
+        setBackendUsed(true)
       } else {
         setWarning('Backend unavailable; showing local calculation.')
       }
@@ -247,14 +250,35 @@ function App() {
   return (
     <div className="app-bg min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        <header className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 text-slate-100 text-xs tracking-wide uppercase">
-            cDNA Mix Planner
+        <header className="hero-card">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-3 max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white text-xs tracking-wide uppercase border border-white/20">
+                cDNA Mix Planner
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-black text-white drop-shadow">
+                Fast RT mix calculations
+              </h1>
+              <p className="text-indigo-100 text-lg">
+                Paste sample concentrations, set a target ng, and get pipetting volumes, pre-dilution tips, and master-mix totals.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="pill pill-light">20 µl final</span>
+                <span className="pill pill-light">0.5 µl min pipet</span>
+                <span className="pill pill-light">10% overage default</span>
+              </div>
+            </div>
+            <div className="mini-card">
+              <div className="text-xs uppercase tracking-wide text-indigo-200">Fixed reagents (µl)</div>
+              <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-white">
+                <span>10x buffer: <strong>{FIXED.buffer}</strong></span>
+                <span>dNTPs: <strong>{FIXED.dntps}</strong></span>
+                <span>Rand primers: <strong>{FIXED.rand}</strong></span>
+                <span>Enzyme: <strong>{FIXED.enzyme}</strong></span>
+              </div>
+              <div className="mt-3 text-xs text-indigo-100">Available RNA + H₂O: {AVAIL_RNA_H2O.toFixed(1)} µl</div>
+            </div>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">Fast RT mix calculations</h1>
-          <p className="text-slate-600 max-w-3xl mx-auto text-lg">
-            Paste sample concentrations, set a target ng, and get pipetting volumes, pre-dilution tips, and master-mix totals.
-          </p>
         </header>
 
         {error && (
@@ -343,6 +367,9 @@ function App() {
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">Output</h2>
                 <p className="text-sm text-slate-500">Volumes, pre-dilution notes, master mix.</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Source: {backendUsed ? 'API' : 'Local calc'} {warning && '(API unavailable)'}
+                </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={exportCsv} disabled={!rows.length} className="pill-btn">CSV</button>

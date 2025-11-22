@@ -13,8 +13,24 @@
               linear-gradient(135deg, #f8fafc, #eef2ff);
 }
 
+.hero-card {
+  background: linear-gradient(135deg, #4338ca, #2563eb);
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(59, 130, 246, 0.3);
+  color: #fff;
+}
+
+.mini-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  padding: 14px 16px;
+  min-width: 220px;
+}
+
 .glass-card {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(12px);
@@ -40,4 +56,39 @@
 .pill-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.pill-light {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.text-shadow {
+  text-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+}
+
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
