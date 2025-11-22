@@ -75,8 +75,27 @@
   border-color: rgba(255, 255, 255, 0.25);
 }
 
-.text-shadow {
-  text-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+.form-chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.chip-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-weight: 700;
+  color: #0f172a;
+  width: 90px;
+}
+
+.table-scroll {
+  max-height: 320px;
+  overflow: auto;
 }
 
 ::-webkit-scrollbar {

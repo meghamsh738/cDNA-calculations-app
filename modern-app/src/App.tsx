@@ -147,6 +147,7 @@ function App() {
   const [backendUsed, setBackendUsed] = useState(false)
 
   const samples = useMemo(() => (useExample ? parseSamples(EXAMPLE_TEXT) : parseSamples(sampleText)), [useExample, sampleText])
+  const examplePreview = useMemo(() => parseSamples(EXAMPLE_TEXT).slice(0, 3), [])
 
   useEffect(() => {
     if (useExample) setSampleText(EXAMPLE_TEXT)
@@ -161,13 +162,11 @@ function App() {
     setError(null)
     setWarning(null)
 
-    // Local fallback calc (ensures UI always works even if API is down)
     const local = calcLocally(samples, targetNg, overagePct)
     setRows(local.rows)
     setMasterMix(local.masterMix)
     setBackendUsed(false)
 
-    // Try backend to keep parity; if it fails, we keep local results.
     try {
       const response = await fetch('http://localhost:8003/calculate', {
         method: 'POST',
@@ -247,6 +246,16 @@ function App() {
     { label: 'Overage (%)', value: overagePct }
   ]
 
+  const tableColumns: { key: keyof CalcRow; label: string }[] = [
+    { key: 'Sample', label: 'Sample' },
+    { key: 'RNA Conc (ng/µl)', label: 'Conc (ng/µl)' },
+    { key: 'RNA Volume (µl)', label: 'RNA Vol (µl)' },
+    { key: 'H2O (µl)', label: 'H₂O (µl)' },
+    { key: 'final volume (µl)', label: 'Final Vol (µl)' },
+    { key: 'Achievable RNA (ng)', label: 'Achievable (ng)' },
+    { key: 'Note', label: 'Notes' }
+  ]
+
   return (
     <div className="app-bg min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
@@ -294,12 +303,45 @@ function App() {
           </div>
         )}
 
+        <div className="sticky top-3 z-20 flex flex-wrap items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-white/90 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="form-chip">
+              <label className="text-xs text-slate-500">Target (ng)</label>
+              <input
+                type="number"
+                className="chip-input"
+                value={targetNg}
+                onChange={(e) => setTargetNg(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+            <div className="form-chip">
+              <label className="text-xs text-slate-500">Overage (%)</label>
+              <input
+                type="number"
+                className="chip-input"
+                value={overagePct}
+                onChange={(e) => setOveragePct(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+            <div className="pill-btn text-xs">Available RNA+H₂O: {AVAIL_RNA_H2O.toFixed(1)} µl</div>
+          </div>
+          <div className="flex-1" />
+          <button
+            onClick={handleCalculate}
+            disabled={loading}
+            data-testid="calculate-btn"
+            className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold shadow-md hover:from-indigo-700 hover:to-blue-700 transition-all disabled:opacity-50"
+          >
+            {loading ? 'Calculating…' : 'Calculate volumes'}
+          </button>
+        </div>
+
         <div className="grid lg:grid-cols-2 gap-6">
-          <div className="glass-card space-y-6">
+          <div className="glass-card space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">Input</h2>
-                <p className="text-sm text-slate-500">Tab/comma/space separated; header required.</p>
+                <h2 className="text-xl font-semibold text-slate-900">Input samples</h2>
+                <p className="text-sm text-slate-500">Header required. Delimiter auto-detected.</p>
               </div>
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <input
@@ -308,53 +350,54 @@ function App() {
                   checked={useExample}
                   onChange={(e) => setUseExample(e.target.checked)}
                 />
-                Use Example
+                Use example
               </label>
             </div>
 
-            <textarea
-              className="w-full h-40 px-4 py-3 rounded-xl border border-slate-200 bg-white/80 shadow-inner focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
-              placeholder="Sample,Conc&#10;Sample1,178.2"
-              value={useExample ? EXAMPLE_TEXT : sampleText}
-              onChange={(e) => {
-                setUseExample(false)
-                setSampleText(e.target.value)
-              }}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700">Target RNA (ng)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  value={targetNg}
-                  onChange={(e) => setTargetNg(parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700">Mix overage (%)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  value={overagePct}
-                  onChange={(e) => setOveragePct(parseFloat(e.target.value) || 0)}
-                />
+            <div className="grid md:grid-cols-2 gap-4 items-start">
+              <textarea
+                className="w-full h-44 px-4 py-3 rounded-xl border border-slate-200 bg-white/80 shadow-inner focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                placeholder="Sample,Conc\nSample1,178.2"
+                value={useExample ? EXAMPLE_TEXT : sampleText}
+                onChange={(e) => {
+                  setUseExample(false)
+                  setSampleText(e.target.value)
+                }}
+              />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 space-y-2">
+                <div className="font-semibold text-slate-900 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-indigo-500" /> Quick guide
+                </div>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Accepted columns: <strong>Sample</strong>, <strong>RNA Conc</strong></li>
+                  <li>Delimiter auto-detected (tab/comma/space)</li>
+                  <li>Header required; order preserved</li>
+                  <li>Example preview:</li>
+                </ul>
+                <div className="rounded-lg border border-slate-200 bg-white text-xs overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-100">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Sample</th>
+                        <th className="px-2 py-1 text-left">Conc</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {examplePreview.map((ex, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                          <td className="px-2 py-1">{ex.sample}</td>
+                          <td className="px-2 py-1">{ex.conc}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={handleCalculate}
-              disabled={loading}
-              data-testid="calculate-btn"
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold py-3 shadow-lg hover:from-indigo-700 hover:to-blue-700 transition-all disabled:opacity-50"
-            >
-              {loading ? 'Calculating…' : 'Calculate Volumes'}
-            </button>
-
             <div className="grid grid-cols-3 gap-3">
               {stats.map((s) => (
-                <div key={s.label} className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-center">
+                <div key={s.label} className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-center">
                   <div className="text-xs uppercase tracking-wide text-slate-500">{s.label}</div>
                   <div className="text-lg font-semibold text-slate-900">{s.value}</div>
                 </div>
@@ -381,37 +424,57 @@ function App() {
             {!rows.length && <p className="text-sm text-slate-500">No output yet. Paste samples and click Calculate.</p>}
 
             {rows.length > 0 && (
-              <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      {Object.keys(rows[0]).filter(k => k !== '_order').map(key => (
-                        <th key={key} className="px-3 py-2 text-left font-semibold text-slate-700 border-b">{key}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                        {Object.entries(row).filter(([k]) => k !== '_order').map(([k, v]) => (
-                          <td key={k} className="px-3 py-2 border-b text-slate-800">{v === null ? '' : v}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-3">
+                  <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="table-scroll">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-100 sticky top-0">
+                          <tr>
+                            {tableColumns.map((col) => (
+                              <th key={col.key as string} className="px-3 py-2 text-left font-semibold text-slate-700 border-b">{col.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              {tableColumns.map((col) => (
+                                <td key={col.key as string} className="px-3 py-2 border-b text-slate-800 text-sm">
+                                  {row[col.key] === null ? '' : row[col.key]}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
 
-            {masterMix && (
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 shadow-inner">
-                <div className="font-semibold mb-1">Master mix totals ({overagePct}% overage)</div>
-                <div className="flex flex-wrap gap-3">
-                  <span>10x buffer: {masterMix['10x buffer']} µl</span>
-                  <span>dNTPs: {masterMix['dNTPs']} µl</span>
-                  <span>Random primers: {masterMix['Random primers']} µl</span>
-                  <span>Enzyme: {masterMix['Enzyme']} µl</span>
-                  <span>Total reactions: {masterMix['n_total']}</span>
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 shadow-inner">
+                    <div className="font-semibold mb-1">Master mix totals ({overagePct}% overage)</div>
+                    {masterMix ? (
+                      <div className="space-y-1">
+                        <div>10x buffer: {masterMix['10x buffer']} µl</div>
+                        <div>dNTPs: {masterMix['dNTPs']} µl</div>
+                        <div>Random primers: {masterMix['Random primers']} µl</div>
+                        <div>Enzyme: {masterMix['Enzyme']} µl</div>
+                        <div>Total reactions: {masterMix['n_total']}</div>
+                      </div>
+                    ) : (
+                      <div className="text-indigo-700">Run a calculation to see totals.</div>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-inner space-y-2">
+                    <div className="font-semibold text-slate-900">Notes</div>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Volumes below {MIN_PIP} µl trigger pre-dilution suggestions.</li>
+                      <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl.</li>
+                      <li>Master mix includes overage for pipetting safety.</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             )}
