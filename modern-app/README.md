@@ -2,7 +2,11 @@
 
 Modern rewrite of the RT mix helper. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot.
 
-![Example run](screenshots/example_run.png)
+Screenshots
+------------
+| Plan & inputs | Output table | Master mix | Notes & rules |
+| --- | --- | --- | --- |
+| ![Plan & inputs](screenshots/plan_tab.png) | ![Output table](screenshots/output_tab.png) | ![Master mix](screenshots/master_tab.png) | ![Notes & rules](screenshots/notes_tab.png) |
 
 ## Highlights
 - Input: tab/comma/space-separated `Sample,Conc` with header.
