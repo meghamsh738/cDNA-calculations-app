@@ -9,7 +9,7 @@ export default defineConfig({
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'npm run dev:full',
+    command: 'npm run dev:front -- --port 5176',
     url: 'http://localhost:5176',
     reuseExistingServer: false,
     timeout: 120_000,
