@@ -5,13 +5,13 @@ export default defineConfig({
   timeout: 80_000,
   fullyParallel: true,
   use: {
-    baseURL: 'http://localhost:5176',
+    baseURL: 'http://localhost:5177',
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'npm run dev:front',
-    url: 'http://localhost:5176',
-    reuseExistingServer: true,
+    command: 'npm run dev:front -- --port 5177',
+    url: 'http://localhost:5177',
+    reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore'
   },
