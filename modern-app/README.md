@@ -1,42 +1,41 @@
 # cDNA Calculations (React + FastAPI)
 
-Modern web UI for the RT mix helper. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, predilution suggestions, and master-mix totals. The bundled example dataset plus Playwright E2E generate a screenshot.
+Modern rewrite of the RT mix helper. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot.
 
-## Project structure
-- `src/` – React UI (Vite + TypeScript + Tailwind).
-- `backend/` – FastAPI API with the calculation logic.
-- `example_data/samples.csv` – Bundled example concentrations.
-- `tests/` – Playwright E2E covering the example flow.
-- `screenshots/example_run.png` – Saved by the E2E.
+![Example run](screenshots/example_run.png)
 
-## Prerequisites
-- Node 18+ and npm
-- Python 3.10+
+## Highlights
+- Input: tab/comma/space-separated `Sample,Conc` with header.
+- Logic parity with legacy: fixed reagents (10x buffer, dNTPs, random primers, enzyme), 20 µl final, 10% overage default, pre-dilution suggestions below 0.5 µl RNA, master mix summary row.
+- Outputs: interactive table, CSV export, Excel export, clipboard TSV.
+- Example data: `example_data/samples.csv`.
 
-## Setup
+## Setup (D:)
 ```bash
+cd "<PROJECTS_DIR>/cDNA-calculations-app/modern-app"
+# If node_modules is missing
 npm install
-pip install -r backend/requirements.txt
+# Backend deps
+python3 -m venv .venv
+./.venv/bin/pip install --break-system-packages -r backend/requirements.txt
 ```
 
 ## Run (dev)
 ```bash
-# API on :8003
-npm run dev:back
-# Frontend on :5176
-npm run dev:front
+npm run dev:full   # front :5176, API :8003
 ```
 Open http://localhost:5176, toggle **Use Example Data**, and click **Calculate Volumes**.
 
 ## Tests & screenshot
 ```bash
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium   # once, if not already installed
 npm run test:e2e
 ```
-This starts both servers, drives the example flow, and writes `screenshots/example_run.png`.
+The E2E starts both servers, runs the example flow, and writes `screenshots/example_run.png`.
 
 ## API
-- `POST /calculate` – Body: samples[], target_ng, overage_pct, use_example?; returns rows + master mix.
-- `GET /example` – Returns the bundled sample set and defaults.
+- `POST /calculate` → rows + master_mix (body: samples[], target_ng, overage_pct, use_example?)
+- `POST /export-excel` → Excel workbook with the grid
+- `GET /example`, `GET /health`
 
-All endpoints honor `use_example: true` so you can run without providing data.
+All endpoints honor `use_example: true` to run without user data.
