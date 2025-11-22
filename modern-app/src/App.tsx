@@ -18,6 +18,10 @@ type CalcRow = {
 }
 
 const EXAMPLE_TEXT = exampleCsv.trim()
+const FIXED = { buffer: 2.0, dntps: 0.8, rand: 2.0, enzyme: 1.0 }
+const FINAL_VOL = 20.0
+const AVAIL_RNA_H2O = FINAL_VOL - (FIXED.buffer + FIXED.dntps + FIXED.rand + FIXED.enzyme)
+const MIN_PIP = 0.5
 
 const parseSamples = (text: string) => {
   const lines = text.trim().split('\n').filter(l => l.trim())
@@ -32,11 +36,6 @@ const parseSamples = (text: string) => {
   }
   return out
 }
-
-const FIXED = { buffer: 2.0, dntps: 0.8, rand: 2.0, enzyme: 1.0 }
-const FINAL_VOL = 20.0
-const AVAIL_RNA_H2O = FINAL_VOL - (FIXED.buffer + FIXED.dntps + FIXED.rand + FIXED.enzyme)
-const MIN_PIP = 0.5
 
 const dilutionRecipeText = (D: number, prep = 10) => {
   if (D <= 1) return 'No pre-dilution needed.'
@@ -134,6 +133,29 @@ const calcLocally = (samples: { sample: string; conc: number }[], target: number
   return { rows, masterMix: mm }
 }
 
+const tableColumns: { key: keyof CalcRow; label: string }[] = [
+  { key: 'Sample', label: 'Sample' },
+  { key: 'RNA Conc (ng/µl)', label: 'Conc (ng/µl)' },
+  { key: 'RNA Volume (µl)', label: 'RNA (µl)' },
+  { key: 'H2O (µl)', label: 'H₂O (µl)' },
+  { key: '10x buffer', label: '10x buffer (µl)' },
+  { key: 'dNTPs', label: 'dNTPs (µl)' },
+  { key: 'Random primers', label: 'Random primers (µl)' },
+  { key: 'Enzyme', label: 'Enzyme (µl)' },
+  { key: 'final volume (µl)', label: 'Final vol (µl)' },
+  { key: 'Achievable RNA (ng)', label: 'Achievable (ng)' },
+  { key: 'Note', label: 'Notes' }
+]
+
+const tabs = [
+  { id: 'plan', label: 'Plan & inputs' },
+  { id: 'output', label: 'Output table' },
+  { id: 'master', label: 'Master mix' },
+  { id: 'notes', label: 'Notes & rules' }
+] as const
+
+type TabId = typeof tabs[number]['id']
+
 function App() {
   const [sampleText, setSampleText] = useState(EXAMPLE_TEXT)
   const [useExample, setUseExample] = useState(true)
@@ -145,9 +167,10 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [backendUsed, setBackendUsed] = useState(false)
+  const [tab, setTab] = useState<TabId>('plan')
 
   const samples = useMemo(() => (useExample ? parseSamples(EXAMPLE_TEXT) : parseSamples(sampleText)), [useExample, sampleText])
-  const examplePreview = useMemo(() => parseSamples(EXAMPLE_TEXT).slice(0, 3), [])
+  const examplePreview = useMemo(() => parseSamples(EXAMPLE_TEXT).slice(0, 4), [])
 
   useEffect(() => {
     if (useExample) setSampleText(EXAMPLE_TEXT)
@@ -246,117 +269,110 @@ function App() {
     { label: 'Overage (%)', value: overagePct }
   ]
 
-  const tableColumns: { key: keyof CalcRow; label: string }[] = [
-    { key: 'Sample', label: 'Sample' },
-    { key: 'RNA Conc (ng/µl)', label: 'Conc (ng/µl)' },
-    { key: 'RNA Volume (µl)', label: 'RNA Vol (µl)' },
-    { key: 'H2O (µl)', label: 'H₂O (µl)' },
-    { key: 'final volume (µl)', label: 'Final Vol (µl)' },
-    { key: 'Achievable RNA (ng)', label: 'Achievable (ng)' },
-    { key: 'Note', label: 'Notes' }
+  const reagentCards = [
+    { label: '10x buffer', value: FIXED.buffer, total: masterMix?.['10x buffer'] },
+    { label: 'dNTPs', value: FIXED.dntps, total: masterMix?.dNTPs },
+    { label: 'Random primers', value: FIXED.rand, total: masterMix?.['Random primers'] },
+    { label: 'Enzyme', value: FIXED.enzyme, total: masterMix?.Enzyme },
   ]
 
   return (
-    <div className="app-bg min-h-screen">
-      <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        <header className="hero-card">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-3 max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white text-xs tracking-wide uppercase border border-white/20">
-                cDNA Mix Planner
-              </div>
-              <h1 className="text-4xl sm:text-5xl font-black text-white drop-shadow">
-                Fast RT mix calculations
-              </h1>
-              <p className="text-indigo-100 text-lg">
-                Paste sample concentrations, set a target ng, and get pipetting volumes, pre-dilution tips, and master-mix totals.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="pill pill-light">20 µl final</span>
-                <span className="pill pill-light">0.5 µl min pipet</span>
-                <span className="pill pill-light">10% overage default</span>
-              </div>
+    <div className="page">
+      <div className="hero">
+        <div className="hero-text">
+          <div className="tag">cDNA mix planner · legacy logic</div>
+          <h1>RT mix calculations without guesswork</h1>
+          <p className="lede">
+            Paste concentrations, set a target ng and overage, and get pipetting volumes, pre-dilution recipes, and master-mix totals.
+            Local math mirrors the FastAPI backend so you always see results.
+          </p>
+          <div className="pill-row">
+            <span className="pill">20 µl final</span>
+            <span className="pill">0.5 µl min pipet</span>
+            <span className="pill">14.2 µl RNA + H₂O space</span>
+          </div>
+        </div>
+        <div className="hero-meta">
+          <p className="kicker">Fixed per reaction</p>
+          <div className="meta-grid">
+            <div className="meta-card">
+              <p>10x buffer</p>
+              <strong>{FIXED.buffer} µl</strong>
             </div>
-            <div className="mini-card">
-              <div className="text-xs uppercase tracking-wide text-indigo-200">Fixed reagents (µl)</div>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-white">
-                <span>10x buffer: <strong>{FIXED.buffer}</strong></span>
-                <span>dNTPs: <strong>{FIXED.dntps}</strong></span>
-                <span>Rand primers: <strong>{FIXED.rand}</strong></span>
-                <span>Enzyme: <strong>{FIXED.enzyme}</strong></span>
-              </div>
-              <div className="mt-3 text-xs text-indigo-100">Available RNA + H₂O: {AVAIL_RNA_H2O.toFixed(1)} µl</div>
+            <div className="meta-card">
+              <p>dNTPs</p>
+              <strong>{FIXED.dntps} µl</strong>
+            </div>
+            <div className="meta-card">
+              <p>Random primers</p>
+              <strong>{FIXED.rand} µl</strong>
+            </div>
+            <div className="meta-card">
+              <p>Enzyme</p>
+              <strong>{FIXED.enzyme} µl</strong>
             </div>
           </div>
-        </header>
+          <p className="muted">Available RNA + H₂O: {AVAIL_RNA_H2O.toFixed(1)} µl · Final volume: {FINAL_VOL} µl</p>
+        </div>
+      </div>
 
+      <div className="alerts">
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 flex items-center justify-between">
-            <span><strong>Error:</strong> {error}</span>
-            <button onClick={() => setError(null)} className="underline text-red-900 text-sm">Dismiss</button>
+          <div className="alert error">
+            <div><strong>Error:</strong> {error}</div>
+            <button onClick={() => setError(null)}>Dismiss</button>
           </div>
         )}
         {warning && !error && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 flex items-center justify-between">
-            <span>{warning}</span>
-            <button onClick={() => setWarning(null)} className="underline text-amber-900 text-sm">Dismiss</button>
+          <div className="alert warn">
+            <div>{warning}</div>
+            <button onClick={() => setWarning(null)}>Dismiss</button>
           </div>
         )}
+      </div>
 
-        <div className="sticky top-3 z-20 flex flex-wrap items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-white/90 shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="form-chip">
-              <label className="text-xs text-slate-500">Target (ng)</label>
-              <input
-                type="number"
-                className="chip-input"
-                value={targetNg}
-                onChange={(e) => setTargetNg(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="form-chip">
-              <label className="text-xs text-slate-500">Overage (%)</label>
-              <input
-                type="number"
-                className="chip-input"
-                value={overagePct}
-                onChange={(e) => setOveragePct(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="pill-btn text-xs">Available RNA+H₂O: {AVAIL_RNA_H2O.toFixed(1)} µl</div>
-          </div>
-          <div className="flex-1" />
-          <button
-            onClick={handleCalculate}
-            disabled={loading}
-            data-testid="calculate-btn"
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold shadow-md hover:from-indigo-700 hover:to-blue-700 transition-all disabled:opacity-50"
-          >
-            {loading ? 'Calculating…' : 'Calculate volumes'}
-          </button>
+      <div className="shell">
+        <div className="tabs">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              className={`tab ${tab === t.id ? 'active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div className="glass-card space-y-4">
-            <div className="flex items-center justify-between">
+      {tab === 'plan' && (
+        <div className="shell grid-2 tall">
+          <section className="card">
+            <div className="section-head">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">Input samples</h2>
-                <p className="text-sm text-slate-500">Header required. Delimiter auto-detected.</p>
+                <p className="kicker">Step 1 · Paste your data</p>
+                <h2>Samples (Sample, RNA Conc)</h2>
+                <p className="muted">Drop or paste your table here. Header required; delimiter auto-detected.</p>
               </div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <label className="toggle" aria-label="Use example">
                 <input
+                  aria-label="Use example"
                   type="checkbox"
-                  className="w-5 h-5 accent-indigo-600"
                   checked={useExample}
                   onChange={(e) => setUseExample(e.target.checked)}
                 />
-                Use example
+                <span className="toggle-ui" />
+                <span className="toggle-label">Use example</span>
               </label>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 items-start">
+            <div className="field big-field">
+              <div className="field-top">
+                <div className="pill ghost">Paste here · Sample,Conc</div>
+                <div className="muted">Detected: {samples.length || '—'} samples</div>
+              </div>
               <textarea
-                className="w-full h-44 px-4 py-3 rounded-xl border border-slate-200 bg-white/80 shadow-inner focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                className="textarea large"
                 placeholder="Sample,Conc\nSample1,178.2"
                 value={useExample ? EXAMPLE_TEXT : sampleText}
                 onChange={(e) => {
@@ -364,123 +380,215 @@ function App() {
                   setSampleText(e.target.value)
                 }}
               />
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 space-y-2">
-                <div className="font-semibold text-slate-900 flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-indigo-500" /> Quick guide
+              <div className="field-foot">
+                <div>
+                  <p className="help">Keep the header row. Volumes below {MIN_PIP} µl trigger pre-dilution suggestions.</p>
+                  <p className="help">Supports pasted TSV/CSV from Excel or Sheets.</p>
                 </div>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Accepted columns: <strong>Sample</strong>, <strong>RNA Conc</strong></li>
-                  <li>Delimiter auto-detected (tab/comma/space)</li>
-                  <li>Header required; order preserved</li>
-                  <li>Example preview:</li>
-                </ul>
-                <div className="rounded-lg border border-slate-200 bg-white text-xs overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-slate-100">
+              </div>
+            </div>
+
+            <div className="preview">
+              <div className="side-head">
+                <p className="kicker">Example preview</p>
+                <span className="pill ghost">example_data/samples.csv</span>
+              </div>
+              <div className="mini-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Sample</th>
+                      <th>Conc (ng/µl)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examplePreview.map((ex, idx) => (
+                      <tr key={idx}>
+                        <td>{ex.sample}</td>
+                        <td>{ex.conc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="bullets">
+                <li>Header required: Sample, RNA Conc.</li>
+                <li>Order preserved; master mix row added automatically.</li>
+                <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="section-head">
+              <div>
+                <p className="kicker">Step 2 · Set the run</p>
+                <h2>Target + overage</h2>
+                <p className="muted">Local calc mirrors the FastAPI backend; backend replaces results when reachable.</p>
+              </div>
+            </div>
+
+            <div className="controls">
+              <label className="control">
+                <span>Target RNA (ng)</span>
+                <input
+                  type="number"
+                  value={targetNg}
+                  onChange={(e) => setTargetNg(parseFloat(e.target.value) || 0)}
+                />
+              </label>
+              <label className="control">
+                <span>Overage (%)</span>
+                <input
+                  type="number"
+                  value={overagePct}
+                  onChange={(e) => setOveragePct(parseFloat(e.target.value) || 0)}
+                />
+              </label>
+              <div className="control readonly">
+                <span>RNA + H₂O capacity</span>
+                <strong>{AVAIL_RNA_H2O.toFixed(1)} µl</strong>
+              </div>
+            </div>
+
+            <div className="stats-row">
+              {stats.map((s) => (
+                <div key={s.label} className="stat">
+                  <p className="stat-label">{s.label}</p>
+                  <p className="stat-value">{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="cta-row">
+              <div className="muted">Click calculate to fill the output and master-mix tabs. Exports mirror what you see.</div>
+              <button
+                onClick={handleCalculate}
+                disabled={loading}
+                data-testid="calculate-btn"
+                className="primary"
+              >
+                {loading ? 'Calculating…' : 'Calculate volumes'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {tab === 'output' && (
+        <div className="shell">
+          <section className="card">
+            <div className="section-head output-head">
+              <div>
+                <p className="kicker">Step 3 · Output table</p>
+                <h2>Volumes, notes, and master mix row</h2>
+              </div>
+              <div className="output-meta">
+                <span className={`pill ${backendUsed ? 'pill-ok' : 'pill-local'}`}>
+                  Source: {backendUsed ? 'FastAPI' : 'Local calculation'}
+                </span>
+                {warning && <span className="pill warn">API unavailable</span>}
+                <span className="pill ghost">Target {targetNg} ng · {overagePct}% overage · {samples.length} samples</span>
+              </div>
+              <div className="button-row">
+                <button onClick={exportCsv} disabled={!rows.length} className="ghost">CSV</button>
+                <button onClick={exportExcel} disabled={!rows.length} className="ghost">Excel</button>
+                <button onClick={copyTsv} disabled={!rows.length} className="ghost">Copy TSV</button>
+              </div>
+            </div>
+
+            {!rows.length && (
+              <div className="empty">
+                <p className="muted">No output yet. Paste samples, set target/overage, then click Calculate in the Plan tab.</p>
+              </div>
+            )}
+
+            {rows.length > 0 && (
+              <div className="table-wrap">
+                <div className="table-scroll">
+                  <table className="data">
+                    <thead>
                       <tr>
-                        <th className="px-2 py-1 text-left">Sample</th>
-                        <th className="px-2 py-1 text-left">Conc</th>
+                        {tableColumns.map((col) => (
+                          <th key={col.key as string}>{col.label}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {examplePreview.map((ex, idx) => (
-                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                          <td className="px-2 py-1">{ex.sample}</td>
-                          <td className="px-2 py-1">{ex.conc}</td>
+                      {rows.map((row, idx) => (
+                        <tr key={idx}>
+                          {tableColumns.map((col) => (
+                            <td key={col.key as string}>{row[col.key] === null ? '' : row[col.key]}</td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {stats.map((s) => (
-                <div key={s.label} className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-center">
-                  <div className="text-xs uppercase tracking-wide text-slate-500">{s.label}</div>
-                  <div className="text-lg font-semibold text-slate-900">{s.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass-card space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">Output</h2>
-                <p className="text-sm text-slate-500">Volumes, pre-dilution notes, master mix.</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Source: {backendUsed ? 'API' : 'Local calc'} {warning && '(API unavailable)'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={exportCsv} disabled={!rows.length} className="pill-btn">CSV</button>
-                <button onClick={exportExcel} disabled={!rows.length} className="pill-btn">Excel</button>
-                <button onClick={copyTsv} disabled={!rows.length} className="pill-btn">Copy TSV</button>
-              </div>
-            </div>
-
-            {!rows.length && <p className="text-sm text-slate-500">No output yet. Paste samples and click Calculate.</p>}
-
-            {rows.length > 0 && (
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="col-span-2 space-y-3">
-                  <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div className="table-scroll">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-100 sticky top-0">
-                          <tr>
-                            {tableColumns.map((col) => (
-                              <th key={col.key as string} className="px-3 py-2 text-left font-semibold text-slate-700 border-b">{col.label}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row, idx) => (
-                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                              {tableColumns.map((col) => (
-                                <td key={col.key as string} className="px-3 py-2 border-b text-slate-800 text-sm">
-                                  {row[col.key] === null ? '' : row[col.key]}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 shadow-inner">
-                    <div className="font-semibold mb-1">Master mix totals ({overagePct}% overage)</div>
-                    {masterMix ? (
-                      <div className="space-y-1">
-                        <div>10x buffer: {masterMix['10x buffer']} µl</div>
-                        <div>dNTPs: {masterMix['dNTPs']} µl</div>
-                        <div>Random primers: {masterMix['Random primers']} µl</div>
-                        <div>Enzyme: {masterMix['Enzyme']} µl</div>
-                        <div>Total reactions: {masterMix['n_total']}</div>
-                      </div>
-                    ) : (
-                      <div className="text-indigo-700">Run a calculation to see totals.</div>
-                    )}
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-inner space-y-2">
-                    <div className="font-semibold text-slate-900">Notes</div>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Volumes below {MIN_PIP} µl trigger pre-dilution suggestions.</li>
-                      <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl.</li>
-                      <li>Master mix includes overage for pipetting safety.</li>
-                    </ul>
-                  </div>
+                <div className="table-foot">
+                  <span>{rows.length - 1} samples + master mix row</span>
+                  <span>{`Pre-dilution suggestions appear when RNA volume < ${MIN_PIP} µl`}</span>
                 </div>
               </div>
             )}
-          </div>
+          </section>
         </div>
-      </div>
+      )}
+
+      {tab === 'master' && (
+        <div className="shell">
+          <section className="card">
+            <div className="section-head">
+              <div>
+                <p className="kicker">Master mix totals</p>
+                <h2>Build once for all reactions</h2>
+              </div>
+              <span className="pill ghost">{masterMix ? `${masterMix.n_total} reactions` : 'Run a calculation first'}</span>
+            </div>
+
+            {masterMix ? (
+              <div className="reagents">
+                {reagentCards.map((reagent) => (
+                  <div key={reagent.label} className="reagent-card">
+                    <p className="muted">{reagent.label}</p>
+                    <p className="big">{reagent.value} µl / rxn</p>
+                    <p className="muted">{reagent.total} µl total</p>
+                  </div>
+                ))}
+                <div className="reagent-card highlight">
+                  <p className="muted">Overage applied</p>
+                  <p className="big">{overagePct}%</p>
+                  <p className="muted">Samples: {masterMix.n_samples}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="empty">
+                <p className="muted">Run a calculation in the Plan tab to see master mix totals.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {tab === 'notes' && (
+        <div className="shell">
+          <section className="card notes">
+            <div className="section-head">
+              <div>
+                <p className="kicker">Notes & rules</p>
+                <h2>How this app behaves</h2>
+              </div>
+            </div>
+            <ul className="bullets">
+              <li>Pre-dilution recipes surface automatically when RNA volume is below {MIN_PIP} µl; follow the recipe, then add the diluted aliquot.</li>
+              <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl; final volume is fixed to {FINAL_VOL} µl.</li>
+              <li>Master mix row includes the overage you set to give pipetting headroom.</li>
+              <li>Exports (CSV, Excel, TSV) mirror the output table, including the master mix row.</li>
+              <li>Local calculation mirrors the FastAPI backend; backend results replace local when reachable.</li>
+            </ul>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
