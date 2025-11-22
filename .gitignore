@@ -1,0 +1,8 @@
+node_modules
+.vscode
+.DS_Store
+.env
+.venv
+modern-app/.venv
+modern-app/test-results
+modern-app/screenshots/example_run.png
