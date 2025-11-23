@@ -1,6 +1,6 @@
 # cDNA Calculations App (React + FastAPI)
 
-Modern rewrite of the RT mix helper. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot.
+Modern React + FastAPI app. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot. Legacy notes (if any) are in `LEGACY.md`.
 
 ![Example run](modern-app/screenshots/example_run.png)
 
