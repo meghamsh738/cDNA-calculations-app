@@ -8,6 +8,10 @@ Screenshots
 | --- | --- | --- | --- |
 | ![Plan & inputs](screenshots/plan_tab.png) | ![Output table](screenshots/output_tab.png) | ![Master mix](screenshots/master_tab.png) | ![Notes & rules](screenshots/notes_tab.png) |
 
+| End-to-end example | Full plan view |
+| --- | --- |
+| ![Example run](screenshots/example_run.png) | ![Full plan view](screenshots/plan_view.png) |
+
 ## Highlights
 - Input: tab/comma/space-separated `Sample,Conc` with header.
 - Logic parity with legacy: fixed reagents (10x buffer, dNTPs, random primers, enzyme), 20 µl final, 10% overage default, pre-dilution suggestions below 0.5 µl RNA, master mix summary row.
