@@ -34,6 +34,12 @@ npm run dev:full   # front :5176, API :8003
 ```
 Open http://localhost:5176, toggle **Use Example Data**, and click **Calculate Volumes**.
 
+## Data format & quick AI helper
+- Required columns (CSV/XLSX): `Sample, Conc` (RNA concentration ng/µL). See `example_data/samples.csv`.
+- Need to reshape first? Use: [ChatGPT](https://chat.openai.com/), [Gemini](https://gemini.google.com/app), [Grok](https://grok.com/).
+- Prompt: "Convert my table to CSV with headers: Sample, Conc. Keep values intact, no invented data, output UTF-8 CSV text only."
+- Save as `samples.csv`, then upload or paste. Visual helper: `screenshots/data-format-helper.svg`.
+
 ## Tests & screenshot
 ```bash
 npx playwright install --with-deps chromium   # once, if not already installed
