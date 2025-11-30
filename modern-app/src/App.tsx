@@ -416,6 +416,22 @@ function App() {
                 <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl.</li>
               </ul>
             </div>
+
+            <div className="helper">
+              <div className="helper-head">
+                <div>
+                  <p className="kicker">Need a quick formatter?</p>
+                  <h3>AI prompt for data cleanup</h3>
+                  <p className="muted">Open your preferred chat, paste this prompt, get back a clean CSV, then paste it above.</p>
+                </div>
+                <div className="helper-links">
+                  <a href="https://chat.openai.com/" target="_blank" rel="noreferrer">ChatGPT</a>
+                  <a href="https://gemini.google.com/app" target="_blank" rel="noreferrer">Gemini</a>
+                  <a href="https://grok.com/" target="_blank" rel="noreferrer">Grok</a>
+                </div>
+              </div>
+              <pre className="prompt-block">Convert my table to CSV with headers: Sample, Conc. Conc in ng/µL numeric; keep sample names as-is; no invented rows; output CSV text only.</pre>
+            </div>
           </section>
 
           <section className="card">

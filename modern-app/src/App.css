@@ -602,6 +602,59 @@ body {
 .table-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
 .table-scroll::-webkit-scrollbar-track { background: transparent; }
 
+.helper {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #0c1526;
+  border: 1px solid #1f2a3c;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.helper-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.helper-head h3 {
+  margin: 4px 0;
+  color: #e8edff;
+}
+
+.helper-links {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.helper-links a {
+  color: #cfe1ff;
+  background: rgba(37, 99, 235, 0.14);
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.helper-links a:hover { background: rgba(37, 99, 235, 0.24); }
+
+.prompt-block {
+  margin: 0;
+  white-space: pre-wrap;
+  background: #0a101c;
+  border: 1px dashed #2a3b55;
+  color: #e8edff;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 @media (max-width: 720px) {
   .hero { grid-template-columns: 1fr; }
   .cta-row { flex-direction: column; align-items: flex-start; }
