@@ -8,6 +8,9 @@ test('example cDNA calculation flow', async ({ page }) => {
   await page.getByTestId('calculate-btn').click()
 
   await fs.mkdir('screenshots', { recursive: true })
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: 'screenshots/example_run.png', fullPage: true })
+  await page.screenshot({ path: 'screenshots/plan_view.png', fullPage: true })
   await page.screenshot({ path: 'screenshots/plan_tab.png', fullPage: true })
 
   await page.getByRole('button', { name: 'Output table' }).click()

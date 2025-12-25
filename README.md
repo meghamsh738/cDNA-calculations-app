@@ -2,7 +2,7 @@
 
 Modern React + FastAPI app. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot. Legacy notes (if any) are in `LEGACY.md`.
 
-Latest UI (refreshed Dec 1, 2025 via `npm run test:e2e`):
+Latest UI (refreshed Dec 25, 2025 via `npm run test:e2e`):
 
 | Plan | Output | Master mix | Notes |
 | --- | --- | --- | --- |
