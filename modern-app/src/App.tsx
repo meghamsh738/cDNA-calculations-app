@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  Clipboard,
+  Download,
+  FlaskConical,
+  RefreshCw,
+  Table
+} from 'lucide-react'
 import exampleCsv from '../example_data/samples.csv?raw'
 import './App.css'
 
@@ -218,10 +225,10 @@ function App() {
 
   const exportCsv = () => {
     if (!rows.length) return
-    const headers = Object.keys(rows[0]).filter(k => k !== '_order')
-    const lines = [headers.join(',')]
-    rows.forEach(r => {
-      lines.push(headers.map(h => (r as any)[h]).join(','))
+    const keys = tableColumns.map(col => col.key)
+    const lines = [tableColumns.map(col => col.label).join(',')]
+    rows.forEach(row => {
+      lines.push(keys.map(key => String(row[key] ?? '')).join(','))
     })
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -254,10 +261,10 @@ function App() {
 
   const copyTsv = async () => {
     if (!rows.length) return
-    const headers = Object.keys(rows[0]).filter(k => k !== '_order')
-    const lines = [headers.join('\t')]
-    rows.forEach(r => {
-      lines.push(headers.map(h => (r as any)[h]).join('\t'))
+    const keys = tableColumns.map(col => col.key)
+    const lines = [tableColumns.map(col => col.label).join('\t')]
+    rows.forEach(row => {
+      lines.push(keys.map(key => String(row[key] ?? '')).join('\t'))
     })
     await navigator.clipboard.writeText(lines.join('\n'))
     alert('Copied to clipboard (TSV).')
@@ -277,333 +284,375 @@ function App() {
   ]
 
   return (
-    <div className="page">
-      <div className="hero">
-        <div className="hero-text">
-          <div className="tag">cDNA mix planner · legacy logic</div>
-          <h1>RT mix calculations without guesswork</h1>
-          <p className="lede">
-            Paste concentrations, set a target ng and overage, and get pipetting volumes, pre-dilution recipes, and master-mix totals.
-            Local math mirrors the FastAPI backend so you always see results.
-          </p>
-          <div className="pill-row">
-            <span className="pill">20 µl final</span>
-            <span className="pill">0.5 µl min pipet</span>
-            <span className="pill">14.2 µl RNA + H₂O space</span>
+    <div className="app-bg">
+      <header className="panel">
+        <div className="lab-head">
+          <div>
+            <p className="eyebrow">cDNA planner</p>
+            <h2>RT mix calculations without guesswork</h2>
+            <p className="muted">
+              Paste concentrations, set a target ng + overage, and get pipetting volumes, pre-dilution recipes, and master-mix totals.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className={`status-chip ${loading ? 'warning' : 'success'}`}>
+              {loading ? 'Calculating' : 'Ready'}
+            </span>
+            <span className="pill soft">Final volume: {FINAL_VOL} µl</span>
+            <span className="pill">Min pipet: {MIN_PIP} µl</span>
+            <span className="pill">
+              <FlaskConical className="icon" aria-hidden="true" />
+              {AVAIL_RNA_H2O.toFixed(1)} µl RNA + H₂O capacity
+            </span>
           </div>
         </div>
-        <div className="hero-meta">
-          <p className="kicker">Fixed per reaction</p>
-          <div className="meta-grid">
-            <div className="meta-card">
-              <p>10x buffer</p>
-              <strong>{FIXED.buffer} µl</strong>
+      </header>
+
+      {error && (
+        <div className="panel" role="alert">
+          <div className="lab-head">
+            <div>
+              <p className="eyebrow">Alert</p>
+              <h2>Error</h2>
+              <p className="muted">{error}</p>
             </div>
-            <div className="meta-card">
-              <p>dNTPs</p>
-              <strong>{FIXED.dntps} µl</strong>
-            </div>
-            <div className="meta-card">
-              <p>Random primers</p>
-              <strong>{FIXED.rand} µl</strong>
-            </div>
-            <div className="meta-card">
-              <p>Enzyme</p>
-              <strong>{FIXED.enzyme} µl</strong>
-            </div>
+            <button onClick={() => setError(null)} className="ghost">Dismiss</button>
           </div>
-          <p className="muted">Available RNA + H₂O: {AVAIL_RNA_H2O.toFixed(1)} µl · Final volume: {FINAL_VOL} µl</p>
         </div>
-      </div>
+      )}
 
-      <div className="alerts">
-        {error && (
-          <div className="alert error">
-            <div><strong>Error:</strong> {error}</div>
-            <button onClick={() => setError(null)}>Dismiss</button>
+      {warning && !error && (
+        <div className="panel">
+          <div className="lab-head">
+            <div>
+              <p className="eyebrow">Notice</p>
+              <h2>Backend offline</h2>
+              <p className="muted">{warning}</p>
+            </div>
+            <button onClick={() => setWarning(null)} className="ghost">Dismiss</button>
           </div>
-        )}
-        {warning && !error && (
-          <div className="alert warn">
-            <div>{warning}</div>
-            <button onClick={() => setWarning(null)}>Dismiss</button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="shell">
-        <div className="tabs">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              className={`tab ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
+      <div className="app-shell">
+        <aside className="panel sidebar">
+          <div className="lab-head">
+            <div>
+              <p className="eyebrow">Inputs</p>
+              <h2>Samples + Targets</h2>
+              <p className="muted">Header required. Supports pasted TSV/CSV from Excel or Sheets.</p>
+            </div>
+            <button className="pill soft" onClick={() => setUseExample(true)} type="button">
+              <RefreshCw className="icon" aria-hidden="true" />
+              Sample
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {tab === 'plan' && (
-        <div className="shell grid-2 tall">
-          <section className="card">
-            <div className="section-head">
-              <div>
-                <p className="kicker">Step 1 · Paste your data</p>
-                <h2>Samples (Sample, RNA Conc)</h2>
-                <p className="muted">Drop or paste your table here. Header required; delimiter auto-detected.</p>
-              </div>
-              <label className="toggle">
+          <div className="sidebar-section">
+            <div className="section-title">Samples</div>
+            <div className="chip-row">
+              <label className="pill soft">
                 <input
                   type="checkbox"
                   checked={useExample}
                   onChange={(e) => setUseExample(e.target.checked)}
                 />
-                <span className="toggle-ui" />
-                <span className="toggle-label">Use example</span>
+                <span>Use example</span>
               </label>
+              <span className="pill soft">Detected: {samples.length || '—'} samples</span>
             </div>
+            <textarea
+              className="data-textarea"
+              placeholder="Sample,Conc\nSample1,178.2"
+              aria-label="Sample concentration input"
+              value={useExample ? EXAMPLE_TEXT : sampleText}
+              onChange={(e) => {
+                setUseExample(false)
+                setSampleText(e.target.value)
+              }}
+            />
+            <p className="muted tiny">Volumes below {MIN_PIP} µl trigger pre-dilution suggestions.</p>
+          </div>
 
-            <div className="field big-field">
-              <div className="field-top">
-                <div className="pill ghost">Paste here · Sample,Conc</div>
-                <div className="muted">Detected: {samples.length || '—'} samples</div>
-              </div>
-              <textarea
-                className="textarea large"
-                placeholder="Sample,Conc\nSample1,178.2"
-                value={useExample ? EXAMPLE_TEXT : sampleText}
-                onChange={(e) => {
-                  setUseExample(false)
-                  setSampleText(e.target.value)
-                }}
-              />
-              <div className="field-foot">
-                <div>
-                  <p className="help">Keep the header row. Volumes below {MIN_PIP} µl trigger pre-dilution suggestions.</p>
-                  <p className="help">Supports pasted TSV/CSV from Excel or Sheets.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="preview">
-              <div className="side-head">
-                <p className="kicker">Example preview</p>
-                <span className="pill ghost">example_data/samples.csv</span>
-              </div>
-              <div className="mini-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Sample</th>
-                      <th>Conc (ng/µl)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {examplePreview.map((ex, idx) => (
-                      <tr key={idx}>
-                        <td>{ex.sample}</td>
-                        <td>{ex.conc}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <ul className="bullets">
-                <li>Header required: Sample, RNA Conc.</li>
-                <li>Order preserved; master mix row added automatically.</li>
-                <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl.</li>
-              </ul>
-            </div>
-
-            <div className="helper">
-              <div className="helper-head">
-                <div>
-                  <p className="kicker">Need a quick formatter?</p>
-                  <h3>AI prompt for data cleanup</h3>
-                  <p className="muted">Open your preferred chat, paste this prompt, get back a clean CSV, then paste it above.</p>
-                </div>
-                <div className="helper-links">
-                  <a href="https://chat.openai.com/" target="_blank" rel="noreferrer">ChatGPT</a>
-                  <a href="https://gemini.google.com/app" target="_blank" rel="noreferrer">Gemini</a>
-                  <a href="https://grok.com/" target="_blank" rel="noreferrer">Grok</a>
-                </div>
-              </div>
-              <pre className="prompt-block">Convert my table to CSV with headers: Sample, Conc. Conc in ng/µL numeric; keep sample names as-is; no invented rows; output CSV text only.</pre>
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="section-head">
-              <div>
-                <p className="kicker">Step 2 · Set the run</p>
-                <h2>Target + overage</h2>
-                <p className="muted">Local calc mirrors the FastAPI backend; backend replaces results when reachable.</p>
-              </div>
-            </div>
-
-            <div className="controls">
-              <label className="control">
-                <span>Target RNA (ng)</span>
+          <div className="sidebar-section">
+            <div className="section-title">Targets</div>
+            <div className="template-row">
+              <label className="field">
+                <span className="eyebrow">Target RNA (ng)</span>
                 <input
                   type="number"
                   value={targetNg}
                   onChange={(e) => setTargetNg(parseFloat(e.target.value) || 0)}
                 />
               </label>
-              <label className="control">
-                <span>Overage (%)</span>
+              <label className="field">
+                <span className="eyebrow">Overage (%)</span>
                 <input
                   type="number"
                   value={overagePct}
                   onChange={(e) => setOveragePct(parseFloat(e.target.value) || 0)}
                 />
               </label>
-              <div className="control readonly">
-                <span>RNA + H₂O capacity</span>
-                <strong>{AVAIL_RNA_H2O.toFixed(1)} µl</strong>
+              <div className="template-card active">
+                <p className="eyebrow">RNA + H₂O capacity</p>
+                <p className="muted">{AVAIL_RNA_H2O.toFixed(1)} µl</p>
               </div>
             </div>
+          </div>
 
-            <div className="stats-row">
-              {stats.map((s) => (
-                <div key={s.label} className="stat">
-                  <p className="stat-label">{s.label}</p>
-                  <p className="stat-value">{s.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="cta-row">
-              <div className="muted">Click calculate to fill the output and master-mix tabs. Exports mirror what you see.</div>
+          <div className="sidebar-section">
+            <div className="section-title">Actions</div>
+            <div className="edit-actions">
               <button
                 onClick={handleCalculate}
                 disabled={loading}
                 data-testid="calculate-btn"
-                className="primary"
+                className="accent"
+                type="button"
               >
                 {loading ? 'Calculating…' : 'Calculate volumes'}
               </button>
+              {rows.length > 0 && (
+                <button onClick={copyTsv} className="ghost" type="button">
+                  <Clipboard className="icon" aria-hidden="true" />
+                  Copy TSV
+                </button>
+              )}
             </div>
-          </section>
-        </div>
-      )}
-
-      {tab === 'output' && (
-        <div className="shell">
-          <section className="card">
-            <div className="section-head output-head">
-              <div>
-                <p className="kicker">Step 3 · Output table</p>
-                <h2>Volumes, notes, and master mix row</h2>
-              </div>
-              <div className="output-meta">
-                <span className={`pill ${backendUsed ? 'pill-ok' : 'pill-local'}`}>
-                  Source: {backendUsed ? 'FastAPI' : 'Local calculation'}
-                </span>
-                {warning && <span className="pill warn">API unavailable</span>}
-                <span className="pill ghost">Target {targetNg} ng · {overagePct}% overage · {samples.length} samples</span>
-              </div>
-              <div className="button-row">
-                <button onClick={exportCsv} disabled={!rows.length} className="ghost">CSV</button>
-                <button onClick={exportExcel} disabled={!rows.length} className="ghost">Excel</button>
-                <button onClick={copyTsv} disabled={!rows.length} className="ghost">Copy TSV</button>
-              </div>
-            </div>
-
-            {!rows.length && (
-              <div className="empty">
-                <p className="muted">No output yet. Paste samples, set target/overage, then click Calculate in the Plan tab.</p>
-              </div>
-            )}
-
             {rows.length > 0 && (
-              <div className="table-wrap">
-                <div className="table-scroll">
-                  <table className="data">
-                    <thead>
-                      <tr>
-                        {tableColumns.map((col) => (
-                          <th key={col.key as string}>{col.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row, idx) => (
-                        <tr key={idx}>
-                          {tableColumns.map((col) => (
-                            <td key={col.key as string}>{row[col.key] === null ? '' : row[col.key]}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="table-foot">
-                  <span>{rows.length - 1} samples + master mix row</span>
-                  <span>{`Pre-dilution suggestions appear when RNA volume < ${MIN_PIP} µl`}</span>
-                </div>
+              <div className="template-row">
+                <button onClick={exportCsv} className="ghost" type="button">
+                  <Table className="icon" aria-hidden="true" />
+                  CSV
+                </button>
+                <button onClick={exportExcel} className="ghost" type="button">
+                  <Download className="icon" aria-hidden="true" />
+                  Excel
+                </button>
               </div>
             )}
-          </section>
-        </div>
-      )}
+          </div>
 
-      {tab === 'master' && (
-        <div className="shell">
-          <section className="card">
-            <div className="section-head">
-              <div>
-                <p className="kicker">Master mix totals</p>
-                <h2>Build once for all reactions</h2>
-              </div>
-              <span className="pill ghost">{masterMix ? `${masterMix.n_total} reactions` : 'Run a calculation first'}</span>
+          <div className="sidebar-section">
+            <div className="section-title">Quick Stats</div>
+            <div className="chip-row">
+              {stats.map((s) => (
+                <span key={s.label} className="pill soft">{s.label}: {s.value}</span>
+              ))}
+              <span className="pill">{backendUsed ? 'Source: FastAPI' : 'Source: Local'}</span>
             </div>
+          </div>
 
-            {masterMix ? (
-              <div className="reagents">
-                {reagentCards.map((reagent) => (
-                  <div key={reagent.label} className="reagent-card">
-                    <p className="muted">{reagent.label}</p>
-                    <p className="big">{reagent.value} µl / rxn</p>
-                    <p className="muted">{reagent.total} µl total</p>
+          <div className="sidebar-section">
+            <div className="section-title">Sheet Helper</div>
+            <div className="link-panel">
+              <div className="field">
+                <span className="muted tiny">Open your preferred chat, paste this prompt, get back a clean CSV, then paste it above.</span>
+              </div>
+              <div className="edit-actions">
+                <a href="https://chat.openai.com/" target="_blank" rel="noreferrer" className="pill soft">ChatGPT</a>
+                <a href="https://gemini.google.com/app" target="_blank" rel="noreferrer" className="pill soft">Gemini</a>
+                <a href="https://grok.com/" target="_blank" rel="noreferrer" className="pill soft">Grok</a>
+              </div>
+              <pre className="data-textarea" aria-label="Formatting prompt">
+                Convert my table to CSV with headers: Sample, Conc. Conc in ng/µL numeric; keep sample names as-is; no invented rows; output CSV text only.
+              </pre>
+            </div>
+          </div>
+        </aside>
+
+        <section className="panel editor">
+          <div className="editor-header">
+            <div className="title-row">
+              <h1>cDNA Mix Planner</h1>
+              <span className={`status-chip ${rows.length ? 'success' : 'warning'}`}>
+                {rows.length ? 'Output ready' : 'Waiting'}
+              </span>
+            </div>
+            <div className="chip-row">
+              <span className="pill soft">Samples: {samples.length}</span>
+              <span className="pill soft">Target: {targetNg} ng</span>
+              <span className="pill soft">Overage: {overagePct}%</span>
+            </div>
+          </div>
+
+          <div className="editor-tabs">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                className={`tab-button ${tab === t.id ? 'active' : ''}`}
+                onClick={() => setTab(t.id)}
+                type="button"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="editor-body">
+            {tab === 'plan' && (
+              <div className="results-grid">
+                <div className="today-card">
+                  <div className="today-head">
+                    <div>
+                      <h2>Fixed per reaction</h2>
+                      <p className="muted tiny">Always included in the 20 µl final volume.</p>
+                    </div>
+                    <span className="pill soft">Final volume: {FINAL_VOL} µl</span>
                   </div>
-                ))}
-                <div className="reagent-card highlight">
-                  <p className="muted">Overage applied</p>
-                  <p className="big">{overagePct}%</p>
-                  <p className="muted">Samples: {masterMix.n_samples}</p>
+                  <div className="template-row">
+                    {reagentCards.map((reagent) => (
+                      <div key={reagent.label} className="template-card active">
+                        <p className="eyebrow">{reagent.label}</p>
+                        <p className="muted">{reagent.value} µl / rxn</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="today-card">
+                  <div className="today-head">
+                    <div>
+                      <h2>Example preview</h2>
+                      <p className="muted tiny">First few rows from example_data/samples.csv.</p>
+                    </div>
+                    <span className="pill soft">Sample CSV</span>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Sample</th>
+                          <th>Conc (ng/µl)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {examplePreview.map((ex, idx) => (
+                          <tr key={idx}>
+                            <td>{ex.sample}</td>
+                            <td>{ex.conc}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="today-card">
+                  <div className="today-head">
+                    <div>
+                      <h2>Rules & checks</h2>
+                      <p className="muted tiny">Automatic safeguards while calculating volumes.</p>
+                    </div>
+                  </div>
+                  <ul className="note-list">
+                    <li>Pre-dilution recipes appear when RNA volume is below {MIN_PIP} µl.</li>
+                    <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl.</li>
+                    <li>Master mix row includes your overage to give pipetting headroom.</li>
+                  </ul>
                 </div>
               </div>
-            ) : (
-              <div className="empty">
-                <p className="muted">Run a calculation in the Plan tab to see master mix totals.</p>
+            )}
+
+            {tab === 'output' && (
+              <div className="results-grid">
+                <div className="today-card">
+                  <div className="today-head">
+                    <div>
+                      <h2>Output table</h2>
+                      <p className="muted tiny">Volumes, notes, and master mix row.</p>
+                    </div>
+                    <span className="pill soft">
+                      Source: {backendUsed ? 'FastAPI' : 'Local calculation'}
+                    </span>
+                  </div>
+
+                  {!rows.length && (
+                    <div className="empty">
+                      <p className="muted">No output yet. Paste samples, set target/overage, then click Calculate.</p>
+                    </div>
+                  )}
+
+                  {rows.length > 0 && (
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            {tableColumns.map((col) => (
+                              <th key={col.key as string}>{col.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => (
+                            <tr key={idx}>
+                              {tableColumns.map((col) => (
+                                <td key={col.key as string}>{row[col.key] === null ? '' : row[col.key]}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </section>
-        </div>
-      )}
 
-      {tab === 'notes' && (
-        <div className="shell">
-          <section className="card notes">
-            <div className="section-head">
-              <div>
-                <p className="kicker">Notes & rules</p>
-                <h2>How this app behaves</h2>
+            {tab === 'master' && (
+              <div className="results-grid">
+                <div className="today-card">
+                  <div className="today-head">
+                    <div>
+                      <h2>Master mix totals</h2>
+                      <p className="muted tiny">Build once for all reactions.</p>
+                    </div>
+                    <span className="pill soft">{masterMix ? `${masterMix.n_total} reactions` : 'Run a calculation first'}</span>
+                  </div>
+
+                  {masterMix ? (
+                    <div className="template-row">
+                      {reagentCards.map((reagent) => (
+                        <div key={reagent.label} className="template-card active">
+                          <p className="eyebrow">{reagent.label}</p>
+                          <p className="muted">{reagent.total} µl total</p>
+                        </div>
+                      ))}
+                      <div className="template-card active">
+                        <p className="eyebrow">Overage applied</p>
+                        <p className="muted">{overagePct}%</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="empty">
+                      <p className="muted">Run a calculation in the Plan tab to see master mix totals.</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <ul className="bullets">
-              <li>Pre-dilution recipes surface automatically when RNA volume is below {MIN_PIP} µl; follow the recipe, then add the diluted aliquot.</li>
-              <li>Available RNA + H₂O per well: {AVAIL_RNA_H2O.toFixed(1)} µl; final volume is fixed to {FINAL_VOL} µl.</li>
-              <li>Master mix row includes the overage you set to give pipetting headroom.</li>
-              <li>Exports (CSV, Excel, TSV) mirror the output table, including the master mix row.</li>
-              <li>Local calculation mirrors the FastAPI backend; backend results replace local when reachable.</li>
-            </ul>
-          </section>
-        </div>
-      )}
+            )}
+
+            {tab === 'notes' && (
+              <div className="results-grid">
+                <div className="today-card">
+                  <div className="today-head">
+                    <div>
+                      <h2>Notes & rules</h2>
+                      <p className="muted tiny">How this app behaves.</p>
+                    </div>
+                  </div>
+                  <ul className="note-list">
+                    <li>Pre-dilution recipes surface automatically when RNA volume is below {MIN_PIP} µl.</li>
+                    <li>Final volume is fixed to {FINAL_VOL} µl for every reaction.</li>
+                    <li>Exports mirror the output table, including the master mix row.</li>
+                    <li>Local calculation mirrors the FastAPI backend; backend results replace local when reachable.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
