@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--app-gradient);
   color: var(--text);
   padding: var(--s-6) 0 calc(var(--s-6) * 2);
 }
@@ -22,6 +22,7 @@
   flex-direction: column;
   gap: var(--s-5);
   margin-bottom: var(--s-5);
+  box-shadow: var(--shadow);
 }
 
 .hero-text h1 {
@@ -97,6 +98,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--s-4);
+  box-shadow: var(--shadow-soft);
 }
 
 .meta-grid {
@@ -111,6 +113,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--s-3);
+  box-shadow: var(--shadow-soft);
 }
 
 .meta-card p {
@@ -163,7 +166,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--s-5);
-  box-shadow: none;
+  box-shadow: var(--shadow-soft);
 }
 
 .section-head {
@@ -502,6 +505,7 @@
   gap: var(--s-3);
   border: 1px solid var(--border);
   background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .alert button {
