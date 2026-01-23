@@ -11,15 +11,15 @@
 }
 
 .app-bg > .panel {
-  width: min(var(--content-max), 100%);
+  width: min(var(--content-max), calc(100% - (var(--s-4) * 2)));
   margin: 0 auto;
   padding: var(--space-5);
 }
 
 .app-bg > .app-shell {
-  width: min(var(--content-max), 100%);
+  width: min(var(--content-max), calc(100% - (var(--s-4) * 2)));
   margin: 0 auto;
-  padding: 0 var(--s-4);
+  padding: 0;
 }
 
 .app-shell {
@@ -1413,7 +1413,7 @@ textarea:focus-visible {
   }
 
   .app-bg > .app-shell {
-    padding: 0 var(--space-4);
+    padding: 0;
   }
 
   .app-shell {
