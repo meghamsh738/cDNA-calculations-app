@@ -3,6 +3,11 @@ node_modules
 .DS_Store
 .env
 .venv
+.app-dist
+desktop/dist
+__pycache__/
+*.pyc
+*.pyo
 modern-app/.venv
 modern-app/test-results
 modern-app/screenshots/example_run.png

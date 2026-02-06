@@ -2,7 +2,13 @@ import { test, expect } from '@playwright/test'
 
 test('example cDNA calculation flow', async ({ page }) => {
   await page.goto('/')
-  await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' })
+  await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; } .signature { display: none !important; }' })
+
+  const setupOverlay = page.getByTestId('setup-overlay')
+  if (await setupOverlay.isVisible()) {
+    await page.getByTestId('setup-finish').click()
+    await expect(setupOverlay).toBeHidden()
+  }
 
   await page.getByLabel('Use example').check()
   await page.getByTestId('calculate-btn').click()

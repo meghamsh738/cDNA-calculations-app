@@ -4,6 +4,7 @@ import {
   Download,
   FlaskConical,
   RefreshCw,
+  Settings,
   Table
 } from 'lucide-react'
 import exampleCsv from '../example_data/samples.csv?raw'
@@ -24,11 +25,77 @@ type CalcRow = {
   Note: string
 }
 
+type AppPaths = {
+  dataPath: string
+  attachmentsPath: string
+  exportsPath: string
+  syncPath: string
+}
+
+type ElectronAPI = {
+  selectDirectory: (options?: { title?: string; defaultPath?: string }) => Promise<string | null>
+  ensureDirectories: (paths: Record<string, string>) => Promise<{ ok: boolean; message?: string }>
+  getAppInfo: () => Promise<{ name: string; version: string; platform?: string }>
+  getDefaultPaths: () => Promise<AppPaths>
+}
+
 const EXAMPLE_TEXT = exampleCsv.trim()
 const FIXED = { buffer: 2.0, dntps: 0.8, rand: 2.0, enzyme: 1.0 }
 const FINAL_VOL = 20.0
 const AVAIL_RNA_H2O = FINAL_VOL - (FIXED.buffer + FIXED.dntps + FIXED.rand + FIXED.enzyme)
 const MIN_PIP = 0.5
+const STORAGE_KEY = 'easylab:cdna:paths'
+const resolveApiBase = () => {
+  if (typeof window === 'undefined') return undefined
+  const params = new URLSearchParams(window.location.search)
+  const queryBase = params.get('apiBase') ?? undefined
+  const injected = (window as Window & { __EASYLAB_API__?: string }).__EASYLAB_API__
+  return injected ?? queryBase
+}
+
+const API_BASE = resolveApiBase() ?? import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8003'
+
+const PATH_FIELDS: Array<{ key: keyof AppPaths; label: string; helper: string }> = [
+  { key: 'dataPath', label: 'Data folder', helper: 'Saved calculations, cached state, and metadata.' },
+  { key: 'attachmentsPath', label: 'Attachments folder', helper: 'Files generated or stored with this workspace.' },
+  { key: 'exportsPath', label: 'Exports folder', helper: 'CSV / Excel export destination.' },
+  { key: 'syncPath', label: 'Sync folder', helper: 'Optional sync target for backups.' },
+]
+
+const fallbackPaths = (): AppPaths => ({
+  dataPath: 'Easylab/cDNA/data',
+  attachmentsPath: 'Easylab/cDNA/attachments',
+  exportsPath: 'Easylab/cDNA/exports',
+  syncPath: 'Easylab/cDNA/sync',
+})
+
+const readStoredPaths = (): AppPaths | null => {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(STORAGE_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<AppPaths>
+    if (!parsed || typeof parsed !== 'object') return null
+    return {
+      dataPath: parsed.dataPath ?? '',
+      attachmentsPath: parsed.attachmentsPath ?? '',
+      exportsPath: parsed.exportsPath ?? '',
+      syncPath: parsed.syncPath ?? '',
+    }
+  } catch {
+    return null
+  }
+}
+
+const persistPaths = (paths: AppPaths) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(paths))
+}
+
+const getElectronAPI = (): ElectronAPI | null => {
+  if (typeof window === 'undefined') return null
+  return (window as typeof window & { electronAPI?: ElectronAPI }).electronAPI ?? null
+}
 
 const parseSamples = (text: string) => {
   const lines = text.trim().split('\n').filter(l => l.trim())
@@ -164,6 +231,15 @@ const tabs = [
 type TabId = typeof tabs[number]['id']
 
 function App() {
+  const [storedPaths] = useState(() => readStoredPaths())
+  const [paths, setPaths] = useState<AppPaths>(() => storedPaths ?? fallbackPaths())
+  const [defaultPaths, setDefaultPaths] = useState<AppPaths>(() => storedPaths ?? fallbackPaths())
+  const [setupOpen, setSetupOpen] = useState(() => !storedPaths)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [setupError, setSetupError] = useState<string | null>(null)
+  const [savingSetup, setSavingSetup] = useState(false)
+  const [appInfo, setAppInfo] = useState<{ name: string; version: string } | null>(null)
+
   const [sampleText, setSampleText] = useState(EXAMPLE_TEXT)
   const [useExample, setUseExample] = useState(true)
   const [targetNg, setTargetNg] = useState(200)
@@ -183,6 +259,85 @@ function App() {
     if (useExample) setSampleText(EXAMPLE_TEXT)
   }, [useExample])
 
+  useEffect(() => {
+    let active = true
+    const api = getElectronAPI()
+    if (!storedPaths && api?.getDefaultPaths) {
+      api.getDefaultPaths().then((defaults: AppPaths) => {
+        if (!active) return
+        setDefaultPaths(defaults)
+        setPaths(defaults)
+      }).catch(() => {})
+    }
+    if (api?.getAppInfo) {
+      api.getAppInfo().then((info: { name: string; version: string }) => {
+        if (!active) return
+        setAppInfo(info)
+      }).catch(() => {})
+    }
+    return () => {
+      active = false
+    }
+  }, [storedPaths])
+
+  const updatePath = (key: keyof AppPaths, value: string) => {
+    setPaths((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handlePick = async (key: keyof AppPaths, label: string) => {
+    const api = getElectronAPI()
+    if (!api?.selectDirectory) return
+    const selection = await api.selectDirectory({ title: `Select ${label}`, defaultPath: paths[key] })
+    if (selection) updatePath(key, selection)
+  }
+
+  const handleUseDefaults = () => {
+    setPaths(defaultPaths)
+    setSetupError(null)
+  }
+
+  const ensureDirectories = async (nextPaths: AppPaths) => {
+    const api = getElectronAPI()
+    if (api?.ensureDirectories) {
+      return api.ensureDirectories(nextPaths)
+    }
+    return { ok: true }
+  }
+
+  const handleFinishSetup = async () => {
+    setSetupError(null)
+    setSavingSetup(true)
+    try {
+      const trimmed: AppPaths = {
+        dataPath: paths.dataPath.trim(),
+        attachmentsPath: paths.attachmentsPath.trim(),
+        exportsPath: paths.exportsPath.trim(),
+        syncPath: paths.syncPath.trim(),
+      }
+      const missing = Object.entries(trimmed).filter(([, value]) => !value)
+      if (missing.length) {
+        setSetupError('Please fill all paths before finishing setup.')
+        setSavingSetup(false)
+        return
+      }
+      const result = await ensureDirectories(trimmed)
+      if (!result?.ok) {
+        setSetupError(result?.message || 'Unable to create folders.')
+        setSavingSetup(false)
+        return
+      }
+      persistPaths(trimmed)
+      setSetupOpen(false)
+      setSettingsOpen(false)
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : 'Setup failed.')
+    } finally {
+      setSavingSetup(false)
+    }
+  }
+
+  const isDesktop = typeof window !== 'undefined' && !!getElectronAPI()
+
   const handleCalculate = async () => {
     if (!samples.length) {
       setError('Please paste at least one sample with a concentration.')
@@ -198,7 +353,7 @@ function App() {
     setBackendUsed(false)
 
     try {
-      const response = await fetch('http://localhost:8003/calculate', {
+      const response = await fetch(`${API_BASE}/calculate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,7 +396,7 @@ function App() {
 
   const exportExcel = async () => {
     try {
-      const response = await fetch('http://localhost:8003/export-excel', {
+      const response = await fetch(`${API_BASE}/export-excel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_ng: targetNg, overage_pct: overagePct, samples, use_example: useExample })
@@ -285,6 +440,129 @@ function App() {
 
   return (
     <div className="app-bg">
+      {setupOpen && (
+        <div className="modal-overlay" data-testid="setup-overlay">
+          <div className="modal setup-modal">
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">First run setup</p>
+                <h2>Choose storage folders</h2>
+                <p className="muted">
+                  These folders keep exports, attachments, and sync data together. You can edit them later in Settings.
+                </p>
+              </div>
+              <span className="pill soft">Required</span>
+            </div>
+
+            <div className="modal-grid">
+              {PATH_FIELDS.map((field) => (
+                <label key={field.key} className="field">
+                  <span className="eyebrow">{field.label}</span>
+                  <div className="field-row">
+                    <input
+                      value={paths[field.key]}
+                      onChange={(event) => updatePath(field.key, event.target.value)}
+                      placeholder={defaultPaths[field.key]}
+                      data-testid={`path-${field.key}`}
+                    />
+                    {isDesktop && (
+                      <button
+                        className="ghost"
+                        type="button"
+                        onClick={() => handlePick(field.key, field.label)}
+                      >
+                        Browse
+                      </button>
+                    )}
+                  </div>
+                  <span className="muted tiny">{field.helper}</span>
+                </label>
+              ))}
+            </div>
+
+            {setupError && <div className="setup-message error" role="alert">{setupError}</div>}
+            {!isDesktop && (
+              <div className="setup-message">
+                Folder creation runs automatically in the desktop app. In the web build, paths are stored for reference.
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button className="ghost" type="button" onClick={handleUseDefaults}>
+                Use defaults
+              </button>
+              <button
+                className="accent"
+                type="button"
+                onClick={handleFinishSetup}
+                data-testid="setup-finish"
+                disabled={savingSetup}
+              >
+                {savingSetup ? 'Saving…' : 'Finish setup'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="modal-overlay" data-testid="settings-overlay">
+          <div className="modal settings-modal">
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">Settings</p>
+                <h2>Storage paths</h2>
+                <p className="muted">Update where this app stores outputs and sync content.</p>
+              </div>
+              <button className="ghost" type="button" onClick={() => setSettingsOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <div className="modal-grid">
+              {PATH_FIELDS.map((field) => (
+                <label key={field.key} className="field">
+                  <span className="eyebrow">{field.label}</span>
+                  <div className="field-row">
+                    <input
+                      value={paths[field.key]}
+                      onChange={(event) => updatePath(field.key, event.target.value)}
+                      placeholder={defaultPaths[field.key]}
+                    />
+                    {isDesktop && (
+                      <button
+                        className="ghost"
+                        type="button"
+                        onClick={() => handlePick(field.key, field.label)}
+                      >
+                        Browse
+                      </button>
+                    )}
+                  </div>
+                  <span className="muted tiny">{field.helper}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="about-card">
+              <div className="section-title">About</div>
+              <p className="muted">Easylab cDNA Calculations</p>
+              <p className="muted tiny">Version: {appInfo?.version ?? 'Web build'}</p>
+              <p className="muted tiny">License: All Rights Reserved.</p>
+            </div>
+
+            <div className="modal-actions">
+              <button className="ghost" type="button" onClick={handleUseDefaults}>
+                Reset to defaults
+              </button>
+              <button className="accent" type="button" onClick={handleFinishSetup}>
+                Save settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="panel">
         <div className="lab-head">
           <div>
@@ -304,6 +582,10 @@ function App() {
               <FlaskConical className="icon" aria-hidden="true" />
               {AVAIL_RNA_H2O.toFixed(1)} µl RNA + H₂O capacity
             </span>
+            <button className="ghost" type="button" onClick={() => setSettingsOpen(true)} data-testid="open-settings">
+              <Settings className="icon" aria-hidden="true" />
+              Settings
+            </button>
           </div>
         </div>
       </header>
@@ -653,6 +935,14 @@ function App() {
           </div>
         </section>
       </div>
+
+      <footer className="signature" data-testid="signature">
+        <span className="sig-primary">Made by Meghamsh Teja Konda</span>
+        <span className="sig-dot" aria-hidden="true" />
+        <a className="sig-link" href="mailto:meghamshteja555@gmail.com">
+          meghamshteja555@gmail.com
+        </a>
+      </footer>
     </div>
   )
 }

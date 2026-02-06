@@ -2,6 +2,10 @@
 
 Modern React + FastAPI app with lab notebook neo-brutalist styling. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot. Legacy notes (if any) are in `LEGACY.md`.
 
+Part of **Easylab Suite**: when bundled, it launches from the suite desktop launcher as the **cDNA Calculator** module.
+
+License: All Rights Reserved.
+
 Latest UI (refreshed Dec 28, 2025 via `npm run test:e2e`):
 
 | Plan | Output | Master mix | Notes |
@@ -28,6 +32,20 @@ python3 -m venv .venv
 npm run dev:full   # front :5176, API :8003
 ```
 Open http://localhost:5176, toggle **Use Example Data**, and click **Calculate Volumes**.
+
+## Desktop Installer (Windows)
+From the repo root (next to this README):
+
+```bash
+npm install
+npm run build:electron
+```
+
+The installer is generated in `desktop/dist/` as an `.exe` (NSIS). On first run, the app asks for storage folders and creates them for you.
+
+Notes:
+- The packaged app expects Python 3.10+ available on PATH to run the FastAPI backend. You can set `APP_PYTHON_PATH` to a specific Python executable if needed.
+- The installer is unsigned unless code-signing credentials are configured.
 
 ## Tests & screenshot
 ```bash
