@@ -441,24 +441,95 @@ function App() {
   const tutorialSteps: TutorialStep[] = useMemo(
     () => [
       {
+        selector: '[data-testid="samples-example-toggle"]',
+        title: 'Input source: Use example',
+        description: 'Toggle this if you want to load the bundled sample sheet instead of your own data.',
+        details: [
+          'On: textarea is locked to example_data/samples.csv content.',
+          'Off: paste your own CSV/TSV with columns Sample, Conc.',
+          'Use this first when learning the app behavior.',
+        ],
+      },
+      {
         selector: '[data-testid="samples-input"]',
-        title: 'Paste or load samples',
-        description: 'Start here to paste your concentration table or load the built-in example.',
+        title: 'Paste sample concentrations',
+        description: 'Paste one row per sample with RNA concentration in ng/µl.',
+        details: [
+          'Header is expected so parsing can map columns safely.',
+          'The app automatically counts detected rows.',
+          'Invalid concentration values are ignored during parsing.',
+        ],
+      },
+      {
+        selector: '[data-testid="target-ng-input"]',
+        title: 'Target RNA (ng)',
+        description: 'This is the desired RNA mass per reaction.',
+        details: [
+          'Higher targets require larger RNA input volumes.',
+          'If required RNA volume is too low for pipetting, pre-dilution is suggested.',
+        ],
+      },
+      {
+        selector: '[data-testid="overage-input"]',
+        title: 'Overage (%)',
+        description: 'Adds extra master-mix capacity to protect against pipetting losses.',
+        details: [
+          'Does not change per-sample targets.',
+          'Only increases master-mix totals.',
+        ],
       },
       {
         selector: '[data-testid="calculate-btn"]',
-        title: 'Run calculations',
-        description: 'Set target RNA and overage, then click Calculate volumes to generate the full plan.',
+        title: 'Calculate volumes',
+        description: 'Runs the full planning step using the current inputs.',
+        details: [
+          'Computes RNA volume, H2O volume, and fixed reagents per sample.',
+          'Generates notes for low concentration and pre-dilution situations.',
+          'Creates master-mix totals using overage.',
+        ],
       },
       {
         selector: '[data-testid="tab-output"]',
-        title: 'Review calculated output',
-        description: 'Open Output table to review per-sample RNA/H2O volumes and dilution notes.',
+        title: 'Output table tab',
+        description: 'Review all per-sample calculation outputs here.',
+        details: [
+          'Includes RNA/H2O volumes and notes.',
+          'Master-mix row is appended at the bottom.',
+        ],
+      },
+      {
+        selector: '[data-testid="tab-master"]',
+        title: 'Master mix tab',
+        description: 'Check reagent totals for pooled reaction setup.',
+        details: [
+          'Use this at the bench to prepare one tube for all reactions.',
+          'Totals already include overage.',
+        ],
+      },
+      {
+        selector: '[data-testid="tab-notes"]',
+        title: 'Notes & rules tab',
+        description: 'Contains logic used by the app for edge cases and safeguards.',
+        details: [
+          'Explains pipetting minimum handling.',
+          'Confirms final volume assumptions and export behavior.',
+        ],
+      },
+      {
+        selector: '[data-testid="copy-tsv-btn"]',
+        title: 'Copy TSV',
+        description: 'Copies the current output table to clipboard for spreadsheet workflows.',
+        details: [
+          'Useful when you want quick paste into Excel/Sheets.',
+        ],
       },
       {
         selector: '[data-testid="export-excel-btn"]',
-        title: 'Export final sheet',
-        description: 'Download the finalized calculations as Excel for bench use and record keeping.',
+        title: 'Export Excel (final step)',
+        description: 'Downloads the finalized plan for record keeping and bench execution.',
+        details: [
+          'Use after validating Output and Master mix tabs.',
+        ],
       },
     ],
     []
@@ -664,6 +735,7 @@ function App() {
                   type="checkbox"
                   checked={useExample}
                   onChange={(e) => setUseExample(e.target.checked)}
+                  data-testid="samples-example-toggle"
                 />
                 <span>Use example</span>
               </label>
@@ -692,6 +764,7 @@ function App() {
                   type="number"
                   value={targetNg}
                   onChange={(e) => setTargetNg(parseFloat(e.target.value) || 0)}
+                  data-testid="target-ng-input"
                 />
               </label>
               <label className="field">
@@ -700,6 +773,7 @@ function App() {
                   type="number"
                   value={overagePct}
                   onChange={(e) => setOveragePct(parseFloat(e.target.value) || 0)}
+                  data-testid="overage-input"
                 />
               </label>
               <div className="template-card active">
@@ -727,7 +801,7 @@ function App() {
                 {loading ? 'Calculating…' : 'Calculate volumes'}
               </button>
               {rows.length > 0 && (
-                <button onClick={copyTsv} className="ghost" type="button">
+                <button onClick={copyTsv} className="ghost" type="button" data-testid="copy-tsv-btn">
                   <Clipboard className="icon" aria-hidden="true" />
                   Copy TSV
                 </button>
