@@ -7,6 +7,7 @@ import {
   Settings,
   Table
 } from 'lucide-react'
+import { GuidedTutorial, type TutorialStep } from './GuidedTutorial'
 import exampleCsv from '../example_data/samples.csv?raw'
 import './App.css'
 
@@ -437,6 +438,31 @@ function App() {
     { label: 'Random primers', value: FIXED.rand, total: masterMix?.['Random primers'] },
     { label: 'Enzyme', value: FIXED.enzyme, total: masterMix?.Enzyme },
   ]
+  const tutorialSteps: TutorialStep[] = useMemo(
+    () => [
+      {
+        selector: '[data-testid="samples-input"]',
+        title: 'Paste or load samples',
+        description: 'Start here to paste your concentration table or load the built-in example.',
+      },
+      {
+        selector: '[data-testid="calculate-btn"]',
+        title: 'Run calculations',
+        description: 'Set target RNA and overage, then click Calculate volumes to generate the full plan.',
+      },
+      {
+        selector: '[data-testid="tab-output"]',
+        title: 'Review calculated output',
+        description: 'Open Output table to review per-sample RNA/H2O volumes and dilution notes.',
+      },
+      {
+        selector: '[data-testid="export-excel-btn"]',
+        title: 'Export final sheet',
+        description: 'Download the finalized calculations as Excel for bench use and record keeping.',
+      },
+    ],
+    []
+  )
 
   return (
     <div className="app-bg">
@@ -647,6 +673,7 @@ function App() {
               className="data-textarea"
               placeholder="Sample,Conc\nSample1,178.2"
               aria-label="Sample concentration input"
+              data-testid="samples-input"
               value={useExample ? EXAMPLE_TEXT : sampleText}
               onChange={(e) => {
                 setUseExample(false)
@@ -685,6 +712,11 @@ function App() {
           <div className="sidebar-section">
             <div className="section-title">Actions</div>
             <div className="edit-actions">
+              <GuidedTutorial
+                steps={tutorialSteps}
+                startLabel="Tutorial"
+                onStart={() => setTab('plan')}
+              />
               <button
                 onClick={handleCalculate}
                 disabled={loading}
@@ -707,7 +739,7 @@ function App() {
                   <Table className="icon" aria-hidden="true" />
                   CSV
                 </button>
-                <button onClick={exportExcel} className="ghost" type="button">
+                <button onClick={exportExcel} className="ghost" type="button" data-testid="export-excel-btn">
                   <Download className="icon" aria-hidden="true" />
                   Excel
                 </button>
@@ -765,6 +797,7 @@ function App() {
                 className={`tab-button ${tab === t.id ? 'active' : ''}`}
                 onClick={() => setTab(t.id)}
                 type="button"
+                data-testid={`tab-${t.id}`}
               >
                 {t.label}
               </button>
