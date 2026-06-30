@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ClipboardEvent } from 'react'
 import {
   Clipboard,
   Download,
@@ -111,6 +112,28 @@ const parseSamples = (text: string) => {
   }
   return out
 }
+
+const splitGridLine = (raw: string) => {
+  const line = raw.trim()
+  if (!line) return []
+  if (line.includes('\t') || line.includes(',')) {
+    return line.split(/[\t,]+/).map(part => part.trim())
+  }
+  return line.split(/\s+/).map(part => part.trim())
+}
+
+const parseSampleGridText = (text: string) => text
+  .split('\n')
+  .map(splitGridLine)
+  .filter(row => row.some(Boolean))
+  .filter(row => !(row[0]?.toLowerCase() === 'sample' && row[1]?.toLowerCase().startsWith('conc')))
+  .map(row => [row[0] ?? '', row[1] ?? ''])
+
+const serializeSampleGridRows = (rows: string[][]) => rows
+  .map(row => [row[0] ?? '', row[1] ?? ''])
+  .filter(row => row.some(cell => cell.trim()))
+  .map(row => row.join('\t'))
+  .join('\n')
 
 const dilutionRecipeText = (D: number, prep = 10) => {
   if (D <= 1) return 'No pre-dilution needed.'
@@ -254,7 +277,49 @@ function App() {
   const [tab, setTab] = useState<TabId>('plan')
 
   const samples = useMemo(() => (useExample ? parseSamples(EXAMPLE_TEXT) : parseSamples(sampleText)), [useExample, sampleText])
+  const sampleGridText = useExample ? EXAMPLE_TEXT : sampleText
+  const sampleGridRows = useMemo(() => {
+    const rows = parseSampleGridText(sampleGridText)
+    const minRows = Math.max(12, rows.length + 1)
+    while (rows.length < minRows) rows.push(['', ''])
+    return rows.map(row => [row[0] ?? '', row[1] ?? ''])
+  }, [sampleGridText])
   const examplePreview = useMemo(() => parseSamples(EXAMPLE_TEXT).slice(0, 4), [])
+
+  const updateSampleGridCell = (rowIdx: number, colIdx: number, value: string) => {
+    const rows = parseSampleGridText(sampleGridText)
+    while (rows.length <= rowIdx) rows.push(['', ''])
+    rows[rowIdx][colIdx] = value
+    setUseExample(false)
+    setSampleText(serializeSampleGridRows(rows))
+  }
+
+  const handleSampleGridPaste = (event: ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => {
+    const pasted = event.clipboardData.getData('text/plain')
+    if (!pasted.includes('\t') && !pasted.includes('\n') && !pasted.includes(',')) return
+    event.preventDefault()
+    const incoming = parseSampleGridText(pasted)
+    if (!incoming.length) return
+    const rows = parseSampleGridText(sampleGridText)
+    while (rows.length <= rowIdx) rows.push(['', ''])
+    incoming.forEach((incomingRow, incomingRowIdx) => {
+      const targetRow = rowIdx + incomingRowIdx
+      while (rows.length <= targetRow) rows.push(['', ''])
+      incomingRow.forEach((cell, incomingColIdx) => {
+        const targetCol = colIdx + incomingColIdx
+        if (targetCol < 2) rows[targetRow][targetCol] = cell
+      })
+    })
+    setUseExample(false)
+    setSampleText(serializeSampleGridRows(rows))
+  }
+
+  const addSampleRows = () => {
+    const rows = parseSampleGridText(sampleGridText)
+    rows.push(['', ''], ['', ''], ['', ''], ['', ''], ['', ''])
+    setUseExample(false)
+    setSampleText(serializeSampleGridRows(rows))
+  }
 
   useEffect(() => {
     if (useExample) setSampleText(EXAMPLE_TEXT)
@@ -445,17 +510,17 @@ function App() {
         title: 'Input source: Use example',
         description: 'Toggle this if you want to load the bundled sample sheet instead of your own data.',
         details: [
-          'On: textarea is locked to example_data/samples.csv content.',
-          'Off: paste your own CSV/TSV with columns Sample, Conc.',
+          'On: the grid loads example_data/samples.csv content.',
+          'Off: paste or type your own Sample and Conc rows.',
           'Use this first when learning the app behavior.',
         ],
       },
       {
-        selector: '[data-testid="samples-input"]',
-        title: 'Paste sample concentrations',
-        description: 'Paste one row per sample with RNA concentration in ng/µl.',
+        selector: '[data-testid="samples-grid"]',
+        title: 'Edit sample sheet',
+        description: 'Paste from Excel or type one row per sample with RNA concentration in ng/µl.',
         details: [
-          'Header is expected so parsing can map columns safely.',
+          'Columns are Sample and Conc (ng/µl).',
           'The app automatically counts detected rows.',
           'Invalid concentration values are ignored during parsing.',
         ],
@@ -741,17 +806,51 @@ function App() {
               </label>
               <span className="pill soft">Detected: {samples.length || '—'} samples</span>
             </div>
-            <textarea
-              className="data-textarea"
-              placeholder="Sample,Conc\nSample1,178.2"
-              aria-label="Sample concentration input"
-              data-testid="samples-input"
-              value={useExample ? EXAMPLE_TEXT : sampleText}
-              onChange={(e) => {
-                setUseExample(false)
-                setSampleText(e.target.value)
-              }}
-            />
+            <div className="sheet-panel" data-testid="samples-grid">
+              <div className="sheet-toolbar">
+                <span className="muted tiny">Paste TSV/CSV from Excel into any cell.</span>
+                <div className="edit-actions compact-actions">
+                  <button type="button" className="ghost compact" onClick={addSampleRows}>Add rows</button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    onClick={() => {
+                      setUseExample(false)
+                      setSampleText('')
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="sheet-scroll">
+                <table className="lab-sheet">
+                  <thead>
+                    <tr>
+                      <th>Sample</th>
+                      <th>Conc (ng/µl)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sampleGridRows.map((row, rowIdx) => (
+                      <tr key={rowIdx}>
+                        {row.map((cell, colIdx) => (
+                          <td key={`${rowIdx}-${colIdx}`}>
+                            <input
+                              aria-label={`cDNA sample sheet row ${rowIdx + 1} ${colIdx === 0 ? 'sample' : 'concentration'}`}
+                              data-testid={rowIdx === 0 && colIdx === 0 ? 'samples-grid-cell-0-0' : undefined}
+                              value={cell}
+                              onChange={(e) => updateSampleGridCell(rowIdx, colIdx, e.target.value)}
+                              onPaste={(e) => handleSampleGridPaste(e, rowIdx, colIdx)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
             <p className="muted tiny">Volumes below {MIN_PIP} µl trigger pre-dilution suggestions.</p>
           </div>
 

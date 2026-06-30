@@ -2907,3 +2907,98 @@ table,
   font-size: 0.78rem !important;
   letter-spacing: 0.02em !important;
 }
+
+/* cDNA spreadsheet input refinements. */
+.sheet-panel {
+  border: 1px solid rgba(32, 48, 42, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 252, 245, 0.92);
+  overflow: hidden;
+}
+
+.sheet-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(32, 48, 42, 0.1);
+  background: rgba(248, 241, 230, 0.68);
+}
+
+.sheet-scroll {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.lab-sheet {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace) !important;
+}
+
+.lab-sheet th:first-child,
+.lab-sheet td:first-child {
+  width: 62%;
+}
+
+.lab-sheet th:nth-child(2),
+.lab-sheet td:nth-child(2) {
+  width: 38%;
+}
+
+.lab-sheet th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  border-right: 1px solid rgba(32, 48, 42, 0.1);
+  border-bottom: 1px solid rgba(32, 48, 42, 0.14);
+  background: rgba(239, 231, 217, 0.88) !important;
+  color: #31443d !important;
+  font-size: 11px;
+  text-align: left;
+  white-space: normal;
+}
+
+.lab-sheet td {
+  padding: 0;
+  border-right: 1px solid rgba(32, 48, 42, 0.08);
+  border-bottom: 1px solid rgba(32, 48, 42, 0.08);
+  background: rgba(255, 252, 245, 0.68);
+}
+
+.lab-sheet tbody tr:nth-child(even) td {
+  background: rgba(248, 241, 230, 0.54);
+}
+
+.lab-sheet input {
+  width: 100%;
+  height: 34px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #142620 !important;
+  box-shadow: none !important;
+}
+
+.lab-sheet input:focus {
+  outline: 2px solid rgba(7, 92, 73, 0.34);
+  outline-offset: -2px;
+  background: #fffdf7 !important;
+}
+
+.compact-actions {
+  gap: 6px;
+}
+
+.ghost.compact {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+}

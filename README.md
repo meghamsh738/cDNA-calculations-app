@@ -1,19 +1,19 @@
 # cDNA Calculations App (React + FastAPI)
 
-Modern React + FastAPI app with lab notebook neo-brutalist styling. Paste sample concentrations, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot. Legacy notes (if any) are in `LEGACY.md`.
+Modern React + FastAPI app with lab notebook neo-brutalist styling. Enter sample concentrations in an Excel-style grid, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot. Legacy notes (if any) are in `LEGACY.md`.
 
 Part of **Easylab Suite**: when bundled, it launches from the suite desktop launcher as the **cDNA Calculator** module.
 
 License: All Rights Reserved.
 
-Latest UI (refreshed Dec 28, 2025 via `npm run test:e2e`):
+Latest UI (refreshed Jun 30, 2026 via `npm run test:e2e`):
 
 | Plan | Output | Master mix | Notes |
 | --- | --- | --- | --- |
 | ![Plan tab](modern-app/screenshots/plan_tab.png) | ![Output tab](modern-app/screenshots/output_tab.png) | ![Master mix](modern-app/screenshots/master_tab.png) | ![Notes tab](modern-app/screenshots/notes_tab.png) |
 
 ## Highlights
-- Input: tab/comma/space-separated `Sample,Conc` with header.
+- Input: editable Sample / Conc (ng/µL) grid with TSV/CSV paste support from Excel or Sheets.
 - Logic parity with legacy: fixed reagents (10x buffer, dNTPs, random primers, enzyme), 20 µl final, 10% overage default, pre-dilution suggestions below 0.5 µl RNA, master mix summary row.
 - Outputs: interactive table, CSV export, Excel export, clipboard TSV.
 - Example data: `example_data/samples.csv`.
