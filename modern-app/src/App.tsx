@@ -725,7 +725,7 @@ function App() {
         </div>
       )}
 
-      <header className="panel">
+      <header className="panel console-topbar">
         <div className="lab-head">
           <div>
             <p className="eyebrow">cDNA planner</p>

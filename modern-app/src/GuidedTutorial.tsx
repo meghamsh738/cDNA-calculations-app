@@ -81,10 +81,7 @@ export function GuidedTutorial({
 
   const triggerStyle = useMemo(
     () => ({
-      position: 'fixed' as const,
-      top: 14,
-      right: 14,
-      zIndex: 2147482500,
+      position: 'static' as const,
     }),
     []
   )
