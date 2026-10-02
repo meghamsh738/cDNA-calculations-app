@@ -3,6 +3,7 @@ cDNA Calculations API
 Ported from the original Tkinter RT mix helper.
 """
 
+import csv
 from pathlib import Path
 from typing import List
 
@@ -51,13 +52,11 @@ app.add_middleware(
 def load_example_samples() -> List[Sample]:
     if not EXAMPLE_PATH.exists():
         raise FileNotFoundError(f"Missing example data at {EXAMPLE_PATH}")
-    rows = []
-    for line in EXAMPLE_PATH.read_text().strip().splitlines():
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 2 or parts[0].lower().startswith("sample"):
-            continue
-        rows.append(Sample(sample=parts[0], conc=float(parts[1])))
-    return rows
+    with EXAMPLE_PATH.open(newline="", encoding="utf-8-sig") as source:
+        return [
+            Sample(sample=row["Sample"].strip(), conc=float(row["Conc"]))
+            for row in csv.DictReader(source)
+        ]
 
 
 def dilution_recipe_text(D: int, prep_total_ul: float = 10.0) -> str:
