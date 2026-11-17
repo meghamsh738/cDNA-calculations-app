@@ -5,6 +5,10 @@ node_modules
 .venv
 .app-dist
 desktop/dist
+playwright-report
+test-results
+.playwright-browsers
+**/.next-runtime/
 __pycache__/
 *.pyc
 *.pyo

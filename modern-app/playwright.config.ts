@@ -1,7 +1,19 @@
 import { defineConfig, devices } from '@playwright/test'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const moduleRoot = path.resolve(__dirname, '..')
+const require = createRequire(import.meta.url)
+const runtime = require(path.join(moduleRoot, 'desktop', 'electron', 'next-runtime.cjs'))
+const runtimeLayout = runtime.resolveRuntimeLayout({ projectRoot: moduleRoot })
+process.env.PLAYWRIGHT_BROWSERS_PATH = runtime.assertNoSymlinkPathComponents(runtimeLayout.browserCachePath)
+runtime.assertNoSymlinkPathComponents(runtimeLayout.browserTestOutputPath)
 
 export default defineConfig({
   testDir: './tests',
+  outputDir: runtimeLayout.browserTestOutputPath,
   timeout: 80_000,
   fullyParallel: true,
   expect: {
@@ -11,7 +23,7 @@ export default defineConfig({
     toHaveScreenshot: { animations: 'disabled', caret: 'hide' }
   },
   use: {
-    baseURL: 'http://localhost:5176',
+    baseURL: 'http://127.0.0.1:19511',
     trace: 'on-first-retry',
     viewport: { width: 1440, height: 900 },
     colorScheme: 'light',
@@ -19,8 +31,8 @@ export default defineConfig({
     video: 'retain-on-failure'
   },
   webServer: {
-    command: 'npm run dev:front -- --port 5176',
-    url: 'http://localhost:5176',
+    command: 'npm run dev:full',
+    url: 'http://127.0.0.1:19511',
     reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore'

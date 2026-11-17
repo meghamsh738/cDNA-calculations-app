@@ -1,62 +1,39 @@
-# cDNA Calculations App (React + FastAPI)
+# EasyLab Next — cDNA Calculator
 
-Modern React + FastAPI app with lab notebook neo-brutalist styling. Enter sample concentrations in an Excel-style grid, set a target ng, and get per-sample RNA/H₂O volumes, pre-dilution guidance when pipet volumes are too small, and master-mix totals. CSV/Excel export and clipboard copy are built in. Playwright E2E drives the bundled example and regenerates the screenshot. Legacy notes (if any) are in `LEGACY.md`.
+The Next development version guides recipe selection, sample review and preparation export. It runs locally on the separate `codex/easylab-next-20261113` branch; the original cDNA app and installed Suite remain preserved.
 
-Part of **Easylab Suite**: when bundled, it launches from the suite desktop launcher as the **cDNA Calculator** module.
+## Workflow
 
-License: All Rights Reserved.
+1. Choose the legacy 20 µL recipe or edit and save a named custom recipe. Fixed aliquots, reaction fractions and stock/final concentrations have different scaling rules. Declare kit limits with their source; the legacy recipe makes no kit-validation claim.
+2. Paste or load CSV/TSV samples: sample ID, RNA concentration in ng/µL and optional available stock volume in µL. Every non-empty row remains visible. Invalid concentrations, insufficient stock, negative water and transfers below the pipetting minimum require correction or a reasoned exclusion. The RNA target is never silently reduced.
+3. Review RNA dilution transfers, individual volumes and master-mix totals, then confirm the preparation. Overage changes the batch amount only. Optional finished-cDNA dilution reports RNA-input equivalent, not measured cDNA yield.
+4. Download CSV, Excel or a reopenable experiment package. Edits invalidate approval and hide stale preparation volumes. Undo and confirmed resets are available.
 
-Latest UI (refreshed Jun 30, 2026 via `npm run test:e2e`):
+New experiments retain the recipe but clear sample mappings and review decisions. Named recipes and current inputs use `easylab-next:cdna:*` browser keys. Portable packages include original uploaded text, inputs, exclusions, recipe, results and revision. Browser autosave can be limited by browser storage capacity; download a package for a portable backup. There is no account, cloud service or folder-setup gate.
 
-| Plan | Output | Master mix | Notes |
-| --- | --- | --- | --- |
-| ![Plan tab](modern-app/screenshots/plan_tab.png) | ![Output tab](modern-app/screenshots/output_tab.png) | ![Master mix](modern-app/screenshots/master_tab.png) | ![Notes tab](modern-app/screenshots/notes_tab.png) |
+## Isolated development
 
-## Highlights
-- Input: editable Sample / Conc (ng/µL) grid with TSV/CSV paste support from Excel or Sheets.
-- Logic parity with legacy: fixed reagents (10x buffer, dNTPs, random primers, enzyme), 20 µl final, 10% overage default, pre-dilution suggestions below 0.5 µl RNA, master mix summary row.
-- Outputs: interactive table, CSV export, Excel export, clipboard TSV.
-- Example data: `example_data/samples.csv`.
+Use Node 24 and the dedicated Python 3.11 environment under `../../runtime/python-envs/cdna`. Dependency folders must remain separate from stable checkouts. From this worktree:
 
-## Setup (D:)
-```bash
-cd "<PROJECTS_DIR>/cDNA-calculations-app/modern-app"
-# Reuse deps by copying node_modules/.venv from another modern app if desired
-npm install           # if node_modules missing
-python3 -m venv .venv
-./.venv/bin/pip install --break-system-packages -r backend/requirements.txt
+```sh
+npm run dev
 ```
 
-## Run (dev)
-```bash
-npm run dev:full   # front :5176, API :8003
-```
-Open http://localhost:5176, toggle **Use Example Data**, and click **Calculate Volumes**.
+Open **http://127.0.0.1:19511**. The local API uses **127.0.0.1:18511**. The launcher refuses occupied ports and unsafe path overrides. Standalone writable paths and Electron identities belong to Next. Suite integration continues to use the existing local FastAPI/static-assets architecture.
 
-## Desktop Installer (Windows)
-From the repo root (next to this README):
-
-```bash
-npm install
-npm run build:electron
-```
-
-The installer is generated in `desktop/dist/` as an `.exe` (NSIS). On first run, the app asks for storage folders and creates them for you.
-
-Notes:
-- The packaged app expects Python 3.10+ available on PATH to run the FastAPI backend. You can set `APP_PYTHON_PATH` to a specific Python executable if needed.
-- The installer is unsigned unless code-signing credentials are configured.
-
-## Tests & screenshot
-```bash
-npx playwright install --with-deps chromium   # once, if not already installed
+```sh
+npm run build
+npm run lint
+../../runtime/python-envs/cdna/bin/python -m unittest discover -s modern-app/backend -p 'test_*.py'
 npm run test:e2e
 ```
-The E2E starts both servers, runs the example flow, and writes `screenshots/example_run.png`.
 
-## API
-- `POST /calculate` → rows + master_mix (body: samples[], target_ng, overage_pct, use_example?)
-- `POST /export-excel` → Excel workbook with the grid
-- `GET /example`, `GET /health`
+The backend is the calculation authority for both the screen and Excel export. `backend/recipes.py` is mirrored byte-for-byte in the Next Planner, with common hand-checkable tests for units, scaling, primer dose, actual transfers and overage. React contains schema/default/display logic only.
 
-All endpoints honor `use_example: true` to run without user data.
+The old public API's example and volume keys remain supported. Empty input no longer silently substitutes practice data. Practice experiments are explicitly labelled fictional.
+
+## Development status
+
+This is phase 3 of the separate EasyLab Next line. Verification evidence and screenshots are recorded in `design-review/next-calculators-phase-3/` and the Suite `docs/BUILD_INDEX.md`. A browser build does not establish packaged macOS or Windows readiness; no installed app was replaced.
+
+License: All Rights Reserved.

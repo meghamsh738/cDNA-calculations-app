@@ -1,242 +1,185 @@
-"""
-cDNA Calculations API
-Ported from the original Tkinter RT mix helper.
-"""
+"""Local cDNA Next API: one calculation engine for review and exports."""
 
 import csv
+import io
+import json
 from pathlib import Path
-from typing import List
-
+from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
-APP_TITLE = "cDNA Calculations API"
+try:
+    from .recipes import legacy_cdna_recipe, validate_recipe
+    from .cdna_logic import calculate_cdna, export_rows, parse_samples
+except ImportError:
+    from recipes import legacy_cdna_recipe, validate_recipe
+    from cdna_logic import calculate_cdna, export_rows, parse_samples
 
+APP_TITLE = "cDNA Calculator Next"
 DEFAULT_TARGET_NG = 200.0
-FINAL_VOL = 20.0
 OVERAGE_PCT = 10.0
-MIN_PIPET_VOL = 0.5
-FIXED = {"10x buffer": 2.0, "dNTPs": 0.8, "Random primers": 2.0, "Enzyme": 1.0}
-TOTAL_FIXED = sum(FIXED.values())
-AVAIL_RNA_H2O = FINAL_VOL - TOTAL_FIXED  # 14.2 µl
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-EXAMPLE_PATH = ROOT_DIR / "example_data" / "samples.csv"
+EXAMPLE_PATH = Path(__file__).resolve().parent.parent / "example_data" / "samples.csv"
 
 
 class Sample(BaseModel):
     sample: str
-    conc: float  # ng/µl
+    conc: float | str
+    available_ul: float | str | None = None
 
 
 class CalcRequest(BaseModel):
+    recipe: dict[str, Any] | None = None
+    raw_text: str | None = Field(default=None, max_length=2_000_000)
+    exclusions: dict[str, str] = Field(default_factory=dict)
+    finished_dilution_factor: float = 1.0
     target_ng: float = DEFAULT_TARGET_NG
     overage_pct: float = OVERAGE_PCT
-    samples: List[Sample] = []
+    samples: list[Sample] = Field(default_factory=list)
     use_example: bool = False
 
 
 app = FastAPI(title=APP_TITLE)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://127.0.0.1:19511", "http://127.0.0.1:18578", "null"],
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
-# ----------------- Core helpers -----------------
-def load_example_samples() -> List[Sample]:
-    if not EXAMPLE_PATH.exists():
-        raise FileNotFoundError(f"Missing example data at {EXAMPLE_PATH}")
+def load_example_samples():
     with EXAMPLE_PATH.open(newline="", encoding="utf-8-sig") as source:
         return [
-            Sample(sample=row["Sample"].strip(), conc=float(row["Conc"]))
+            Sample(sample=row["Sample"], conc=float(row["Conc"]))
             for row in csv.DictReader(source)
         ]
 
 
-def dilution_recipe_text(D: int, prep_total_ul: float = 10.0) -> str:
-    if D <= 1:
-        return "No pre-dilution needed."
-    rna_ul = round(prep_total_ul / D, 3)
-    h2o_ul = round(prep_total_ul - rna_ul, 3)
-    return (
-        f"Pre-dilute {D}× (1:{D-1}). For example, make {prep_total_ul:g} µl by mixing "
-        f"{rna_ul} µl RNA + {h2o_ul} µl nuclease-free H₂O."
-    )
-
-
-def suggest_dilution(req_rna_vol: float, avail_vol: float = AVAIL_RNA_H2O, min_pip: float = MIN_PIPET_VOL):
-    if req_rna_vol <= 0:
-        return None
-    candidates = [2, 3, 4, 5, 10, 20, 50]
-    d_needed_min = int((min_pip / req_rna_vol) + 0.9999)
-    d_needed_max = int(avail_vol // req_rna_vol)
-    if d_needed_max < 1:
-        return None
-    for D in candidates:
-        aliquot = D * req_rna_vol
-        if min_pip <= aliquot <= avail_vol:
-            return D, aliquot, dilution_recipe_text(D)
-    D = max(1, d_needed_min)
-    if D * req_rna_vol > avail_vol:
-        return None
-    return D, D * req_rna_vol, dilution_recipe_text(D)
-
-
-def calc_rows(target_ng: float, samples: List[Sample], overage_pct: float):
-    rows = []
-    for idx, s in enumerate(samples):
-        conc = s.conc
-        req_rna_vol = (target_ng / conc) if conc > 0 else float("nan")
-        feasible_by_space = req_rna_vol <= AVAIL_RNA_H2O
-
-        rna_vol_to_add = None
-        h2o = None
-        achievable = max(0.0, conc * AVAIL_RNA_H2O) if conc > 0 else 0.0
-        note = ""
-
-        if feasible_by_space:
-            if req_rna_vol >= MIN_PIPET_VOL:
-                rna_vol_to_add = req_rna_vol
-                h2o = AVAIL_RNA_H2O - rna_vol_to_add
-                achievable = target_ng
-            else:
-                suggestion = suggest_dilution(req_rna_vol)
-                if suggestion:
-                    D, aliq, recipe = suggestion
-                    rna_vol_to_add = aliq
-                    h2o = AVAIL_RNA_H2O - rna_vol_to_add
-                    achievable = target_ng
-                    note = (
-                        f"Required stock volume {req_rna_vol:.3f} µl < {MIN_PIPET_VOL} µl. "
-                        f"{recipe} Then add {aliq:.3f} µl of the diluted RNA."
-                    )
-                else:
-                    note = (
-                        f"Required stock volume {req_rna_vol:.3f} µl is too small to pipette "
-                        f"and no suitable pre-dilution fits within {AVAIL_RNA_H2O:.1f} µl."
-                    )
-        else:
-            note = f"Conc too low: max {achievable:.1f} ng in {AVAIL_RNA_H2O:.1f} µl."
-
-        rows.append({
-            "_order": idx,
-            "Sample": s.sample,
-            "RNA Conc (ng/µl)": round(conc, 3),
-            "RNA Volume (µl)": None if rna_vol_to_add is None else round(rna_vol_to_add, 3),
-            "10x buffer": FIXED["10x buffer"],
-            "dNTPs": FIXED["dNTPs"],
-            "Random primers": FIXED["Random primers"],
-            "Enzyme": FIXED["Enzyme"],
-            "H2O (µl)": None if h2o is None else round(h2o, 3),
-            "final volume (µl)": FINAL_VOL,
-            "Achievable RNA (ng)": round(achievable, 1),
-            "Note": note,
-        })
-
-    n_total = max(1, int(len(samples) * (1.0 + overage_pct/100.0) + 0.9999))
-    mm = {
-        "n_samples": len(samples),
-        "n_total": n_total,
-        "10x buffer": round(FIXED["10x buffer"] * n_total, 3),
-        "dNTPs": round(FIXED["dNTPs"] * n_total, 3),
-        "Random primers": round(FIXED["Random primers"] * n_total, 3),
-        "Enzyme": round(FIXED["Enzyme"] * n_total, 3),
-    }
-    rows.append({
-        "_order": 10**9,
-        "Sample": f"MASTER MIX ({overage_pct:.0f}% overage) — {n_total} rxns",
-        "RNA Conc (ng/µl)": "",
-        "RNA Volume (µl)": "",
-        "10x buffer": mm["10x buffer"],
-        "dNTPs": mm["dNTPs"],
-        "Random primers": mm["Random primers"],
-        "Enzyme": mm["Enzyme"],
-        "H2O (µl)": "",
-        "final volume (µl)": "",
-        "Achievable RNA (ng)": "",
-        "Note": f"Make in one tube; covers {mm['n_samples']} samples + {overage_pct:.0f}% overage.",
-    })
-
-    return rows, mm
-
-
-# ----------------- API -----------------
-@app.get("/example")
-async def example():
-    samples = load_example_samples()
-    return {"samples": [s.dict() for s in samples], "target_ng": DEFAULT_TARGET_NG, "overage_pct": OVERAGE_PCT}
-
-
-@app.post("/calculate")
-async def calculate(req: CalcRequest):
-    samples = req.samples or []
-    if req.use_example or not samples:
-        samples = load_example_samples()
-    if not samples:
-        raise HTTPException(status_code=400, detail="No samples provided.")
-    rows, mm = calc_rows(req.target_ng, samples, req.overage_pct)
-    rows = sorted(rows, key=lambda r: r["_order"])
-    return {"rows": rows, "master_mix": mm, "settings": {"target_ng": req.target_ng, "overage_pct": req.overage_pct}}
+def resolve(req):
+    recipe = req.recipe if req.recipe is not None else legacy_cdna_recipe()
+    if req.recipe is None:
+        recipe["sample_input"]["value"], recipe["overage_pct"] = (
+            req.target_ng,
+            req.overage_pct,
+        )
+    if validate_recipe(recipe):
+        raise HTTPException(status_code=400, detail=validate_recipe(recipe))
+    if req.use_example:
+        text = EXAMPLE_PATH.read_text()
+    elif req.raw_text is not None:
+        text = req.raw_text
+    else:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer, delimiter="\t")
+        writer.writerow(["Sample", "Concentration", "Available"])
+        for sample in req.samples:
+            writer.writerow(
+                [
+                    sample.sample,
+                    sample.conc,
+                    sample.available_ul if sample.available_ul is not None else "",
+                ]
+            )
+        text = buffer.getvalue()
+    try:
+        result = calculate_cdna(
+            recipe, parse_samples(text), req.exclusions, req.finished_dilution_factor
+        )
+    except (ValueError, TypeError, OverflowError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    result["source_text"] = text
+    # Retain the old API's volume keys for clients and the existing regression.
+    for row in result["rows"]:
+        row.update(
+            {
+                "Sample": row["sample"],
+                "RNA Volume (µl)": row["rna_ul"] if row["feasible"] else None,
+                "H2O (µl)": row["water_ul"] if row["feasible"] else None,
+                "final volume (µl)": row["total_ul"],
+            }
+        )
+    return result
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "app": "cdna-next", "engine": "next-cdna-1"}
+
+
+@app.get("/recipes")
+async def recipes():
+    return {"recipes": [legacy_cdna_recipe()]}
+
+
+@app.get("/example")
+async def example():
+    return {
+        "samples": [s.model_dump() for s in load_example_samples()],
+        "target_ng": DEFAULT_TARGET_NG,
+        "overage_pct": OVERAGE_PCT,
+    }
+
+
+@app.post("/calculate")
+async def calculate(req: CalcRequest):
+    return resolve(req)
 
 
 @app.post("/export-excel")
 async def export_excel(req: CalcRequest):
-    """
-    Export calculation to an Excel workbook (single sheet).
-    """
-    try:
-        from openpyxl import Workbook  # imported here to keep startup light
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Excel export unavailable: {exc}")
+    from openpyxl import Workbook
 
-    samples = req.samples or []
-    if req.use_example or not samples:
-        samples = load_example_samples()
-    if not samples:
-        raise HTTPException(status_code=400, detail="No samples provided.")
-
-    rows, mm = calc_rows(req.target_ng, samples, req.overage_pct)
-    rows = sorted(rows, key=lambda r: r["_order"])
-
+    result = resolve(req)
+    if not result["ready"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Resolve all feasibility problems or explicitly exclude affected samples before exporting.",
+        )
     wb = Workbook()
-    ws = wb.active
-    ws.title = "RT Mix"
-
-    headers = [k for k in rows[0].keys() if k != "_order"]
-    ws.append(headers)
-    for r in rows:
-        ws.append([r.get(h, "") for h in headers])
-
-    # Autosize-ish columns
-    for col_idx, header in enumerate(headers, start=1):
-        max_len = max(len(str(header)), *(len(str(r.get(header, ""))) for r in rows))
-        ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_len + 2, 40)
-
-    import io
+    wb.remove(wb.active)
+    tables = {
+        "RT Mix": export_rows(result),
+        "Master mix": result["master_mix"]["components"],
+        "Recipe": [
+            {"Setting": key, "Value": json.dumps(value, ensure_ascii=False)}
+            for key, value in result["recipe"].items()
+        ],
+        "Original input": [
+            {"Row": i + 1, "Text": line}
+            for i, line in enumerate(result["source_text"].splitlines())
+        ],
+    }
+    for name, rows in tables.items():
+        ws = wb.create_sheet(name)
+        if rows:
+            headers = list(rows[0])
+            ws.append(headers)
+            for row in rows:
+                ws.append([row.get(h) for h in headers])
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = ws.dimensions
+            for cells in ws.columns:
+                ws.column_dimensions[cells[0].column_letter].width = min(
+                    45, max(14, max(len(str(c.value or "")) for c in cells) + 2)
+                )
+            for row in ws:
+                for cell in row:
+                    if cell.data_type == "f":
+                        cell.data_type = "s"
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-
-    from fastapi.responses import StreamingResponse
-
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=cdna_mix.xlsx"},
+        headers={"Content-Disposition": "attachment; filename=cdna-next.xlsx"},
     )
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8003)
+
+    uvicorn.run(app, host="127.0.0.1", port=18511)

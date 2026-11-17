@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "sheets": [
+    "RT Mix",
+    "Master mix",
+    "Recipe",
+    "Original input"
+  ],
+  "samples": [
+    "Practice A",
+    "Practice B",
+    "Practice C",
+    "Practice D"
+  ],
+  "rows_compared": 4,
+  "checked": [
+    "sample order",
+    "original concentrations",
+    "retained reaction RNA/water/total",
+    "finished dilution water",
+    "excluded reasons and blank volumes"
+  ]
+}

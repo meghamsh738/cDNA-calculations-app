@@ -1,0 +1,5 @@
+"Sample","Source row","RNA concentration (ng/uL)","RNA (uL)","Reagent: 10x buffer (uL)","Reagent: dNTPs (uL)","Reagent: Random primers (uL)","Reagent: Enzyme (uL)","Water (uL)","Total (uL)","Status","Reason","RNA dilution stock (uL)","RNA dilution water (uL)","Finished dilution stock (uL)","Finished dilution water (uL)"
+"Practice A","2","50","4","2","0.8","2","1","10.2","20","ready","","","","20","60"
+"Practice B","3","1000","0.6000000000000001","2","0.8","2","1","13.599999999999998","20","ready","","3.3333333333333335","6.666666666666666","20","60"
+"Practice C","4","1","","","","","","","20","excluded","Insufficient RNA for this target.","","","",""
+"Practice D","5","invalid","","","","","","","20","excluded","Concentration needs remeasurement.","","","",""
